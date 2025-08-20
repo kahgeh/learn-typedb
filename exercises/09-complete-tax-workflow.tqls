@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 09: Complete Tax Filing Workflow
 # Difficulty: Advanced (Real-world complexity)
 #
@@ -23,8 +24,6 @@
 # - All income sources and their amounts
 # - Deductions and credits applied
 # - Any validation errors or missing fields
-
-transaction read tax-system
     # TODO(human): Build the complete workflow query
     # Start by finding the taxpayer and their filing
     # Then trace through income, deductions, and credits

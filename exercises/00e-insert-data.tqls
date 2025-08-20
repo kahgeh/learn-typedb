@@ -1,3 +1,4 @@
+transaction write tax-system
 # Exercise 00e: Insert Tax System Data
 # Difficulty: Foundation
 # 
@@ -28,8 +29,6 @@
 # Hint:
 # - Insert entities: insert $var isa type; $var has attr value;
 # - Insert relations: ($role1: $var1, $role2: $var2) isa relation;
-
-transaction write tax-system
     # TODO(human): Insert the following data:
     
     # 1. Insert a taxpayer:
@@ -68,4 +67,4 @@ transaction write tax-system
     # 7. Create form-applicable relation showing 1040 is valid for 2024:
     #    (applicable-year: $year, return-type: $form) isa form-applicable;
     
-    close
+    commit

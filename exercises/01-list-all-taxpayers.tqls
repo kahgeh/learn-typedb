@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 01: List All Taxpayers
 # Difficulty: Beginner
 # 
@@ -12,8 +13,6 @@
 # - List of taxpayer entities with their SSN and names
 #
 # Hint: Taxpayers are entities of type 'taxpayer'
-
-transaction read tax-system
     # TODO(human): Write your query here
     # Start with: match $t isa ...
     # End with: select $t;

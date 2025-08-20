@@ -1,3 +1,4 @@
+transaction write tax-system
 # Exercise 02a: Tax Data Migration Workflow
 # Difficulty: Beginner-Intermediate
 # 
@@ -23,8 +24,6 @@
 #
 # Expected Result:
 # Clean, well-structured tax data ready for production
-
-transaction write tax-system
     # PART 1: Insert migrated taxpayer data
     # TODO(human): Insert these taxpayers from the legacy system
     
@@ -93,4 +92,4 @@ transaction write tax-system
     # Delete all filings with IDs starting with "TEST-"
     # These were used for migration testing and shouldn't remain
     
-    close
+    commit

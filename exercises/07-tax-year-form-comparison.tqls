@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 07: Tax Year Form Comparison
 # Difficulty: Advanced
 #
@@ -17,8 +18,6 @@
 # - Forms available in 2024 but not 2023
 # - Forms available in both years
 # - Any deprecated forms (2023 only)
-
-transaction read tax-system
     # TODO(human): Write your query here
     # Strategy: First find 2024 forms, then check if they exist in 2023
     # Consider using multiple queries or optional patterns

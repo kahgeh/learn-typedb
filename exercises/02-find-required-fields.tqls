@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 02: Find Required Fields  
 # Difficulty: Beginner
 #
@@ -13,8 +14,6 @@
 # - Should show field-id and field-name for each
 #
 # Hint: Use 'has is-required true' to filter
-
-transaction read tax-system
     match 
         $field isa field-definition, has is-required true;
     select $field;

@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 04: Reverse Field Dependencies
 # Difficulty: Intermediate
 #
@@ -15,8 +16,6 @@
 # Expected Output:
 # - All fields that have GROSS_INCOME as their source
 # - Show the dependent field IDs
-
-transaction read tax-system
     # TODO(human): Write your query here
     # Find field-dependency relations where GROSS_INCOME is the source
     # Remember: if A depends on B, then A is target and B is source

@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 06: Validation Rules with Their Fields
 # Difficulty: Intermediate
 #
@@ -15,8 +16,6 @@
 # Expected Output:
 # - Field names with their validation rules
 # - Include rule expression and severity level
-
-transaction read tax-system
     # TODO(human): Write your query here
     # Match field-validation relations
     # Get both the field name and the rule details

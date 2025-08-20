@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 05: Form Fields by Section
 # Difficulty: Intermediate
 #
@@ -15,8 +16,6 @@
 # Expected Output:
 # - Fields grouped by section (e.g., "Income", "Deductions")
 # - Ordered by field-order within each section
-
-transaction read tax-system
     match
         $form isa form-definition, has version "1040-2024-v1";
         $rel (container: $form, contained-field: $field) isa field-containment;

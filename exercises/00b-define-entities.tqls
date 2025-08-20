@@ -1,3 +1,4 @@
+transaction schema tax-system
 # Exercise 00b: Define Core Tax Entities
 # Difficulty: Foundation
 # 
@@ -28,8 +29,6 @@
 # Hint: 
 # - entity <name>, owns <attr> [@key], owns <attr>;
 # - Use @key for the primary identifier
-
-transaction schema tax-system
     define
     
     # These attributes exist from exercise 00a
@@ -71,4 +70,4 @@ transaction schema tax-system
     #    - Owns submission-date, filing-status, amendment-number
     #    (Represents an actual filed return)
     
-    close
+    commit

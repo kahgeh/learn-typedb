@@ -1,3 +1,4 @@
+transaction write tax-system
 # Exercise 00f: Delete Tax System Data
 # Difficulty: Foundation
 # 
@@ -26,8 +27,6 @@
 # - Delete pattern: match [find]; delete [what to delete];
 # - Delete attribute: $e has attribute $a; delete $e has $a;
 # - Delete entity: $e isa type; delete $e;
-
-transaction write tax-system
     # TODO(human): Complete these deletion tasks:
     
     # 1. Delete the tax-identifier (SSN) from a specific taxpayer
@@ -74,4 +73,4 @@ transaction write tax-system
     delete
     # Complete: delete old form definitions
     
-    close
+    commit

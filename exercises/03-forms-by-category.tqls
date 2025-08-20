@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 03: Forms by Category
 # Difficulty: Beginner
 #
@@ -13,8 +14,6 @@
 # - Show form-code, form-name, and category
 #
 # Example categories: "individual", "business", "informational"
-
-transaction read tax-system
     # TODO(human): Write your query here
     # Match form-type entities and their category attribute
     # Select both the form and its category

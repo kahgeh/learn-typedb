@@ -1,3 +1,4 @@
+transaction schema tax-system
 # Exercise 00d: Define Advanced Tax Schema (Forms & Fields)
 # Difficulty: Foundation-Intermediate
 # 
@@ -26,8 +27,6 @@
 # Complete schema ready for tax data
 #
 # Hint: Build on previous exercises, adding new entities and relations
-
-transaction schema tax-system
     define
     
     # Additional attributes for forms and fields
@@ -113,4 +112,4 @@ transaction schema tax-system
     #     owns severity;
     #     # Add: plays validation-rule:validation
     
-    close
+    commit

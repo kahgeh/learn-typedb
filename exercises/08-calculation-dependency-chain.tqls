@@ -1,3 +1,4 @@
+transaction read tax-system
 # Exercise 08: Calculation Dependency Chain
 # Difficulty: Advanced
 #
@@ -19,8 +20,6 @@
 #   * Direct inputs to AGI
 #   * Inputs to those inputs (indirect dependencies)
 #   * The calculation expressions at each level
-
-transaction read tax-system
     match
         $calc isa calculation;
         $calc (input-field: $input, result-field: $result) isa calculation;

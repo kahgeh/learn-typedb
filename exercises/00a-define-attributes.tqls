@@ -1,3 +1,4 @@
+transaction schema tax-system
 # Exercise 00a: Define Tax System Attributes
 # Difficulty: Foundation
 # 
@@ -27,8 +28,6 @@
 # Successfully defined attributes ready for entities to own
 #
 # Hint: attribute <name>, value <type>;
-
-transaction schema tax-system
     define
     
     # TODO(human): Define these taxpayer-related attributes:
@@ -56,4 +55,4 @@ transaction schema tax-system
     # 16. filing-status (draft, submitted, accepted, rejected)
     # 17. year (tax year as whole number)
     
-    close
+    commit

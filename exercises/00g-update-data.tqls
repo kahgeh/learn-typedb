@@ -1,3 +1,4 @@
+transaction write tax-system
 # Exercise 00g: Update Tax System Data
 # Difficulty: Foundation-Intermediate
 # 
@@ -26,8 +27,6 @@
 # Hint:
 # - Always check attribute exists before deleting
 # - Use 'not' to avoid duplicate insertions
-
-transaction write tax-system
     # TODO(human): Complete these update scenarios:
     
     # 1. Update taxpayer's name (marriage, legal name change)
@@ -87,4 +86,4 @@ transaction write tax-system
     insert
     # Complete: insert new category "income-primary"
     
-    close
+    commit

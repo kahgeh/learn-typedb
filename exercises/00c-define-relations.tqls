@@ -1,3 +1,4 @@
+transaction schema tax-system
 # Exercise 00c: Define Tax System Relations
 # Difficulty: Foundation
 # 
@@ -28,8 +29,6 @@
 # Hint:
 # - relation <name>, relates <role>, owns <attr>;
 # - entity <name>, plays <relation:role>;
-
-transaction schema tax-system
     define
     
     # Attributes from previous exercises
@@ -83,4 +82,4 @@ transaction schema tax-system
     #     owns form-code @key;
     #     # Add: plays form-applicable:return-type
     
-    close
+    commit
