@@ -1,0 +1,90 @@
+# Exercise 00g: Update Tax System Data
+# Difficulty: Foundation-Intermediate
+# 
+# Task: Update existing tax data using TypeDB's delete+insert pattern.
+#       Real-world scenarios for modifying tax records.
+# 
+# Learning Goals:
+# - Understanding TypeDB's update approach
+# - Combining match, delete, and insert
+# - Handling edge cases (checking existence)
+# - Batch updates with conditions
+#
+# Context:
+# Common tax system updates:
+# - Correct taxpayer information after verification
+# - Update filing status as returns are processed
+# - Amend tax returns (creating new versions)
+# - Bulk status updates during processing
+#
+# TypeDB Update Pattern:
+# 1. Match what you want to update
+# 2. Delete old values
+# 3. Insert new values
+# All in one transaction!
+#
+# Hint:
+# - Always check attribute exists before deleting
+# - Use 'not' to avoid duplicate insertions
+
+transaction write tax-system
+    # TODO(human): Complete these update scenarios:
+    
+    # 1. Update taxpayer's name (marriage, legal name change)
+    #    Change "John Smith" to "John Smith-Jones"
+    match
+    $t isa taxpayer, has full-name "John Smith";
+    $t has full-name $old-name;
+    delete
+    $t has full-name $old-name;
+    insert
+    # Complete: add new name
+    
+    # 2. Update filing status from "submitted" to "accepted"
+    #    IRS has processed and accepted the return
+    match
+    $f isa filing, has filing-id "FIL-2024-001";
+    $f has filing-status $old-status;
+    $old-status = "submitted";
+    delete
+    # Complete: delete old status
+    insert
+    # Complete: insert new status "accepted"
+    
+    # 3. Create an amended return (increment amendment-number)
+    #    When taxpayers need to correct their filing
+    match
+    $f isa filing, has filing-id "FIL-2024-003";
+    $f has amendment-number $old-num;
+    delete
+    $f has amendment-number $old-num;
+    insert
+    # Complete: insert $old-num + 1
+    # Note: In practice, you'd create a new filing linked to original
+    
+    # 4. Bulk update: Mark all "draft" filings older than 30 days as "expired"
+    match
+    $f isa filing;
+    $f has filing-status "draft";
+    $f has submission-date $date;
+    # Assume current date is 2024-05-15
+    $date < 2024-04-15T00:00:00;
+    $f has filing-status $old-status;
+    delete
+    # Complete: delete old status
+    insert
+    # Complete: insert "expired" status
+    
+    # 5. Update form category from "income" to "income-primary"
+    #    Refining categorization for better organization
+    match
+    $form isa return-type;
+    $form has form-code "1040";
+    $form has category $old-cat;
+    $old-cat = "income";
+    delete
+    # Complete: delete old category
+    insert
+    # Complete: insert new category "income-primary"
+    
+    close

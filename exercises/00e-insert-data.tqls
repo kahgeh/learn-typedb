@@ -1,0 +1,71 @@
+# Exercise 00e: Insert Tax System Data
+# Difficulty: Foundation
+# 
+# Task: Insert sample data into the tax system schema.
+#       Practice creating entities and establishing relations.
+# 
+# Learning Goals:
+# - Insert syntax for entities and attributes
+# - Creating relations between entities
+# - Using variables to connect data
+# - Understanding data modeling in practice
+#
+# Context:
+# We'll populate our tax system with:
+# - A taxpayer (John Smith)
+# - Tax year 2024
+# - Form type 1040
+# - A filing that connects them all
+#
+# This represents a real tax filing workflow where:
+# - A taxpayer files form 1040 for tax year 2024
+# - The system tracks when it was submitted
+# - Relations connect all the pieces
+#
+# Expected Result:
+# Sample data ready for querying
+#
+# Hint:
+# - Insert entities: insert $var isa type; $var has attr value;
+# - Insert relations: ($role1: $var1, $role2: $var2) isa relation;
+
+transaction write tax-system
+    # TODO(human): Insert the following data:
+    
+    # 1. Insert a taxpayer:
+    #    - taxpayer-id: "TAX-2024-001"
+    #    - full-name: "John Smith"
+    #    - date-of-birth: 1980-05-15T00:00:00
+    #    - tax-identifier: "123-45-6789"
+    #    Hint: insert $t isa taxpayer; $t has taxpayer-id "TAX-2024-001"; ...
+    
+    # 2. Insert tax year 2024:
+    #    - year: 2024
+    #    - start-date: 2024-01-01T00:00:00
+    #    - end-date: 2024-12-31T23:59:59
+    #    - jurisdiction: "Federal"
+    
+    # 3. Insert form type 1040:
+    #    - form-code: "1040"
+    #    - form-name: "U.S. Individual Income Tax Return"
+    #    - description: "Annual income tax return for individuals"
+    #    - category: "income"
+    #    - jurisdiction: "Federal"
+    
+    # 4. Insert a filing:
+    #    - filing-id: "FIL-2024-001"
+    #    - submission-date: 2024-04-10T14:30:00
+    #    - filing-status: "submitted"
+    #    - amendment-number: 0
+    
+    # 5. Create a filing-relation connecting taxpayer to filing:
+    #    Use variables from above: (filer: $t, tax-filing: $f) isa filing-relation;
+    #    Set filing-date: 2024-04-10T14:30:00
+    
+    # 6. Create a filing-period relation connecting filing to tax year:
+    #    (tax-period: $year, tax-filing: $f) isa filing-period;
+    
+    # 7. Create form-applicable relation showing 1040 is valid for 2024:
+    #    (applicable-year: $year, return-type: $form) isa form-applicable;
+    
+    close

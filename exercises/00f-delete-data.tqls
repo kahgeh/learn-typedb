@@ -1,0 +1,77 @@
+# Exercise 00f: Delete Tax System Data
+# Difficulty: Foundation
+# 
+# Task: Delete data from the tax system using match-delete patterns.
+#       Learn safe deletion practices for maintaining data integrity.
+# 
+# Learning Goals:
+# - Match-delete syntax
+# - Deleting attributes vs entities
+# - Understanding cascading deletion
+# - Maintaining referential integrity
+#
+# Context:
+# Common deletion scenarios in tax systems:
+# - Remove sensitive information (SSN) while keeping records
+# - Delete draft filings that were never submitted
+# - Clean up test data
+# - Remove outdated form versions
+#
+# IMPORTANT: TypeDB automatically deletes relations when entities are deleted
+#
+# Expected Result:
+# Clean data with maintained integrity
+#
+# Hint:
+# - Delete pattern: match [find]; delete [what to delete];
+# - Delete attribute: $e has attribute $a; delete $e has $a;
+# - Delete entity: $e isa type; delete $e;
+
+transaction write tax-system
+    # TODO(human): Complete these deletion tasks:
+    
+    # 1. Delete the tax-identifier (SSN) from a specific taxpayer
+    #    (Privacy request - keep taxpayer, remove SSN only)
+    match
+    $t isa taxpayer, has taxpayer-id "TAX-2024-001";
+    $t has tax-identifier $ssn;
+    delete
+    # Complete: delete just the SSN attribute
+    
+    # 2. Delete all draft filings (never submitted)
+    #    These are incomplete and shouldn't be in production
+    match
+    $f isa filing;
+    $f has filing-status "draft";
+    delete
+    # Complete: delete the filing entities
+    
+    # 3. Delete a specific filing-relation
+    #    (Remove connection but keep both taxpayer and filing)
+    match
+    $rel (filer: $t, tax-filing: $f) isa filing-relation;
+    $t has taxpayer-id "TAX-2024-002";
+    $f has filing-id "FIL-2024-002";
+    delete
+    # Complete: delete just the relation
+    
+    # 4. Delete test taxpayers (IDs starting with "TEST-")
+    #    Note: Their filings and relations will auto-delete
+    match
+    $t isa taxpayer;
+    $t has taxpayer-id $id;
+    # Check if $id starts with "TEST-" (use string comparison)
+    $id like "TEST-*";
+    delete
+    # Complete: delete test taxpayers
+    
+    # 5. Delete old form versions (effective before 2020)
+    #    Clean up obsolete form definitions
+    match
+    $f isa form-definition;
+    $f has effective-date $date;
+    $date < 2020-01-01T00:00:00;
+    delete
+    # Complete: delete old form definitions
+    
+    close

@@ -1,0 +1,86 @@
+# Exercise 00c: Define Tax System Relations
+# Difficulty: Foundation
+# 
+# Task: Define relations that connect tax entities meaningfully.
+#       Relations are the heart of semantic modeling in TypeDB.
+# 
+# Learning Goals:
+# - Relation definition with roles
+# - Understanding semantic role names
+# - Making entities play roles
+# - Relations owning attributes
+#
+# Context:
+# Tax systems have these key relationships:
+# - filing-relation: Links taxpayer to their filing
+# - filing-period: Links filing to its tax year
+# - form-applicable: Links forms to valid tax years
+# - taxpayer-classification: Categorizes taxpayers (individual, business, etc.)
+#
+# Design principles:
+# - Role names should be semantic (filer, not taxpayer_role)
+# - Relations can own attributes for relationship-specific data
+# - Think about cardinality: can a taxpayer have multiple filings?
+#
+# Expected Result:
+# Relations that model real tax system workflows
+#
+# Hint:
+# - relation <name>, relates <role>, owns <attr>;
+# - entity <name>, plays <relation:role>;
+
+transaction schema tax-system
+    define
+    
+    # Attributes from previous exercises
+    attribute taxpayer-id, value string;
+    attribute filing-id, value string;
+    attribute year, value integer;
+    attribute form-code, value string;
+    attribute classification-type, value string;
+    attribute classification-value, value string;
+    attribute filing-date, value datetime;
+    
+    # TODO(human): Complete these definitions:
+    
+    # 1. Define filing-relation that:
+    #    - relates 'filer' role (who files)
+    #    - relates 'tax-filing' role (what is filed)
+    #    - owns filing-date attribute
+    
+    # 2. Define filing-period relation that:
+    #    - relates 'tax-period' role (the year)
+    #    - relates 'tax-filing' role (the filing)
+    
+    # 3. Define form-applicable relation that:
+    #    - relates 'applicable-year' role
+    #    - relates 'return-type' role
+    #    (Links which forms are valid for which years)
+    
+    # 4. Define taxpayer-classification relation that:
+    #    - relates 'classified-entity' role
+    #    - owns classification-type (individual, business, exempt)
+    #    - owns classification-value (specific subtype)
+    
+    # 5. Update entities to play roles (uncomment and complete):
+    
+    # entity taxpayer,
+    #     owns taxpayer-id @key;
+    #     # Add: plays filing-relation:filer
+    #     # Add: plays taxpayer-classification:classified-entity
+    
+    # entity filing,
+    #     owns filing-id @key;
+    #     # Add: plays filing-relation:tax-filing
+    #     # Add: plays filing-period:tax-filing
+    
+    # entity tax-year,
+    #     owns year @key;
+    #     # Add: plays filing-period:tax-period
+    #     # Add: plays form-applicable:applicable-year
+    
+    # entity return-type,
+    #     owns form-code @key;
+    #     # Add: plays form-applicable:return-type
+    
+    close

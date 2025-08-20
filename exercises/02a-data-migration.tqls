@@ -1,0 +1,96 @@
+# Exercise 02a: Tax Data Migration Workflow
+# Difficulty: Beginner-Intermediate
+# 
+# Task: Practice a complete migration workflow for moving tax data
+#       from an old system to TypeDB.
+# 
+# Learning Goals:
+# - Combining multiple insert operations
+# - Data validation before migration
+# - Cleaning up test/duplicate data
+# - Understanding transaction atomicity
+#
+# Context:
+# Your organization is migrating from a legacy tax system to TypeDB.
+# You need to:
+# 1. Import historical taxpayer records
+# 2. Import their past filings
+# 3. Establish proper relationships
+# 4. Clean up any test or duplicate data
+#
+# This mirrors real migrations where data quality and relationships
+# must be preserved while transitioning systems.
+#
+# Expected Result:
+# Clean, well-structured tax data ready for production
+
+transaction write tax-system
+    # PART 1: Insert migrated taxpayer data
+    # TODO(human): Insert these taxpayers from the legacy system
+    
+    # Taxpayer 1:
+    # insert $t1 isa taxpayer;
+    # $t1 has taxpayer-id "MIG-TAX-001";
+    # $t1 has full-name "Alice Johnson";
+    # $t1 has date-of-birth 1975-03-22T00:00:00;
+    # $t1 has tax-identifier "987-65-4321";
+    
+    # Taxpayer 2:
+    # - taxpayer-id: "MIG-TAX-002"
+    # - full-name: "Bob Wilson"
+    # - date-of-birth: 1982-11-10T00:00:00
+    # - tax-identifier: "456-78-9012"
+    
+    # Taxpayer 3 (Business):
+    # - taxpayer-id: "MIG-TAX-003"
+    # - full-name: "Wilson Enterprises LLC"
+    # - tax-identifier: "52-1234567" (EIN format)
+    
+    # PART 2: Insert historical filings from 2023
+    # TODO(human): Insert these past filings
+    
+    # Filing 1 (Alice's 2023 return):
+    # - filing-id: "MIG-FIL-2023-001"
+    # - submission-date: 2023-04-14T16:00:00
+    # - filing-status: "accepted"
+    # - amendment-number: 0
+    # Create filing-relation with Alice (MIG-TAX-001)
+    
+    # Filing 2 (Bob's 2023 return):
+    # - filing-id: "MIG-FIL-2023-002"
+    # - submission-date: 2023-04-15T23:45:00 (last minute!)
+    # - filing-status: "accepted"
+    # - amendment-number: 0
+    # Create filing-relation with Bob (MIG-TAX-002)
+    
+    # Filing 3 (Bob's amended 2023 return):
+    # - filing-id: "MIG-FIL-2023-002-AMD"
+    # - submission-date: 2023-06-10T10:00:00
+    # - filing-status: "accepted"
+    # - amendment-number: 1
+    # Create filing-relation with Bob
+    
+    # PART 3: Create tax year and form relationships
+    # TODO(human): Ensure proper relationships exist
+    
+    # 1. Insert tax year 2023 if not exists
+    # 2. Create filing-period relations for all 2023 filings
+    # 3. Insert return-type "1040" if not exists
+    # 4. Create form-applicable relation for 1040 and 2023
+    
+    # PART 4: Data quality - classify taxpayers
+    # TODO(human): Add classifications to migrated taxpayers
+    
+    # Create taxpayer-classification relations:
+    # - Alice: classification-type "individual", classification-value "single"
+    # - Bob: classification-type "individual", classification-value "married"
+    # - Wilson Enterprises: classification-type "business", classification-value "llc"
+    
+    # PART 5: Clean up test data
+    # TODO(human): Remove any test records
+    
+    # Delete all taxpayers with IDs starting with "TEST-"
+    # Delete all filings with IDs starting with "TEST-"
+    # These were used for migration testing and shouldn't remain
+    
+    close

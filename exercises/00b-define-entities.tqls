@@ -1,0 +1,74 @@
+# Exercise 00b: Define Core Tax Entities
+# Difficulty: Foundation
+# 
+# Task: Define the core entities of our tax system and specify their attributes.
+#       Start with the most fundamental entities.
+# 
+# Learning Goals:
+# - Entity definition syntax in TypeDB 3.0
+# - Using @key for unique identifiers
+# - Understanding which attributes an entity should own
+# - Building a domain model incrementally
+#
+# Context:
+# Every tax system needs these core entities:
+# - taxpayer: The person or business filing taxes
+# - tax-year: Represents a specific tax period
+# - return-type: Different forms (1040, W-2, 1099, etc.)
+# - filing: An actual submitted tax return
+#
+# Design decisions:
+# - What uniquely identifies each entity?
+# - What information is intrinsic to the entity?
+# - What will be added through relations later?
+#
+# Expected Result:
+# Four core entities that form the foundation of our tax system
+#
+# Hint: 
+# - entity <name>, owns <attr> [@key], owns <attr>;
+# - Use @key for the primary identifier
+
+transaction schema tax-system
+    define
+    
+    # These attributes exist from exercise 00a
+    attribute taxpayer-id, value string;
+    attribute full-name, value string;
+    attribute date-of-birth, value datetime;
+    attribute tax-identifier, value string;
+    attribute year, value integer;
+    attribute start-date, value datetime;
+    attribute end-date, value datetime;
+    attribute jurisdiction, value string;
+    attribute form-code, value string;
+    attribute form-name, value string;
+    attribute description, value string;
+    attribute category, value string;
+    attribute filing-id, value string;
+    attribute submission-date, value datetime;
+    attribute filing-status, value string;
+    attribute amendment-number, value integer;
+    
+    # TODO(human): Define these entities:
+    
+    # 1. taxpayer entity that:
+    #    - Uses taxpayer-id as its unique key
+    #    - Owns full-name, date-of-birth, tax-identifier
+    
+    # 2. tax-year entity that:
+    #    - Uses year as its unique key
+    #    - Owns start-date, end-date, jurisdiction
+    #    (Represents tax periods like "2024 Federal" or "2024 California")
+    
+    # 3. return-type entity that:
+    #    - Uses form-code as its unique key
+    #    - Owns form-name, description, category, jurisdiction
+    #    (Represents form types like 1040, W-2, Schedule C)
+    
+    # 4. filing entity that:
+    #    - Uses filing-id as its unique key
+    #    - Owns submission-date, filing-status, amendment-number
+    #    (Represents an actual filed return)
+    
+    close

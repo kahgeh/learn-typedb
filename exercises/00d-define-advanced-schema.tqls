@@ -1,0 +1,116 @@
+# Exercise 00d: Define Advanced Tax Schema (Forms & Fields)
+# Difficulty: Foundation-Intermediate
+# 
+# Task: Extend the schema with form definitions, fields, and their relationships.
+#       This completes the core tax system model.
+# 
+# Learning Goals:
+# - Building complex schemas incrementally
+# - Understanding nested relationships
+# - Modeling hierarchical data (forms contain fields)
+# - Attributes for validation and calculation
+#
+# Context:
+# Tax forms have complex structure:
+# - Each form type (1040) has multiple versions over years
+# - Forms contain fields in specific sections
+# - Fields have dependencies (line 12 depends on line 10 + 11)
+# - Fields have validation rules and calculations
+#
+# This models how real tax software works:
+# - Forms evolve each year but keep similar structure
+# - Smart calculations cascade through fields
+# - Validations ensure compliance
+#
+# Expected Result:
+# Complete schema ready for tax data
+#
+# Hint: Build on previous exercises, adding new entities and relations
+
+transaction schema tax-system
+    define
+    
+    # Additional attributes for forms and fields
+    attribute version, value string;
+    attribute effective-date, value datetime;
+    attribute field-id, value string;
+    attribute field-name, value string;
+    attribute field-type, value string;
+    attribute data-type, value string;
+    attribute is-required, value boolean;
+    attribute help-text, value string;
+    attribute field-order, value integer;
+    attribute section-name, value string;
+    attribute dependency-type, value string;
+    attribute calculation-expression, value string;
+    attribute rule-expression, value string;
+    attribute error-message, value string;
+    attribute severity, value string;
+    
+    # TODO(human): Define these new entities:
+    
+    # 1. form-definition entity:
+    #    - Uses version as @key
+    #    - Owns effective-date
+    #    (Represents a specific version of a form, like "1040-2024-v1")
+    
+    # 2. field-definition entity:
+    #    - Uses field-id as @key
+    #    - Owns field-name, field-type, data-type
+    #    - Owns is-required, help-text
+    #    (Represents fields like "line-12a: Taxable Income")
+    
+    # 3. validation-rule entity:
+    #    - Owns rule-expression, error-message, severity
+    #    (Rules like "If married filing jointly, line 3 must be > 0")
+    
+    # TODO(human): Define these relations:
+    
+    # 4. field-containment relation:
+    #    - relates 'container' role (the form)
+    #    - relates 'contained-field' role (the field)
+    #    - owns field-order (position in form)
+    #    - owns section-name (like "Income", "Deductions")
+    
+    # 5. field-dependency relation:
+    #    - relates 'source-field' role (depends on this)
+    #    - relates 'target-field' role (the dependent field)
+    #    - owns dependency-type (calculation, validation, conditional)
+    
+    # 6. calculation relation:
+    #    - relates 'input-field' role (can have multiple)
+    #    - relates 'output-field' role
+    #    - owns calculation-expression (like "sum(input-fields)")
+    
+    # 7. validation-rule relation (connecting rule to field):
+    #    - relates 'validated-field' role
+    #    - relates 'validation' role
+    
+    # TODO(human): Update entities to play new roles:
+    
+    # entity form-definition,
+    #     owns version @key,
+    #     owns effective-date;
+    #     # Add: plays field-containment:container
+    
+    # entity field-definition,
+    #     owns field-id @key,
+    #     owns field-name,
+    #     owns field-type,
+    #     owns data-type,
+    #     owns is-required,
+    #     owns help-text;
+    #     # Add: plays field-containment:contained-field
+    #     # Add: plays field-dependency:source-field
+    #     # Add: plays field-dependency:target-field
+    #     # Add: plays calculation:input-field
+    #     # Add: plays calculation:output-field
+    #     # Add: plays validation-rule:validated-field
+    
+    # entity validation-rule,
+    #     owns rule-expression,
+    #     owns error-message,
+    #     owns severity;
+    #     # Add: plays validation-rule:validation
+    
+    close

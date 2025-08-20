@@ -1,0 +1,59 @@
+# Exercise 00a: Define Tax System Attributes
+# Difficulty: Foundation
+# 
+# Task: Define the foundational attributes for a tax system.
+#       These are the building blocks that entities and relations will use.
+# 
+# Learning Goals:
+# - Understanding attribute definition syntax in TypeDB 3.0
+# - Choosing appropriate value types for different data
+# - Planning attributes for a real domain
+#
+# Context:
+# We're building a tax system that needs to track:
+# - Taxpayer information (IDs, names, dates)
+# - Form metadata (codes, names, descriptions)
+# - Field properties (IDs, types, validation rules)
+# - Filing details (dates, statuses, amounts)
+#
+# Think about what value types make sense:
+# - IDs and names need text (string)
+# - Amounts need decimals (double)
+# - Dates need timestamps (datetime)
+# - Flags need yes/no (boolean)
+# - Counts need whole numbers (integer)
+#
+# Expected Result:
+# Successfully defined attributes ready for entities to own
+#
+# Hint: attribute <name>, value <type>;
+
+transaction schema tax-system
+    define
+    
+    # TODO(human): Define these taxpayer-related attributes:
+    # 1. taxpayer-id (unique identifier for each taxpayer)
+    # 2. full-name (taxpayer's legal name)
+    # 3. date-of-birth (when they were born)
+    # 4. tax-identifier (SSN or EIN)
+    
+    # TODO(human): Define these form-related attributes:
+    # 5. form-code (like "1040", "W-2")
+    # 6. form-name (human-readable form title)
+    # 7. description (detailed explanation of form purpose)
+    # 8. category (income, deduction, credit, etc.)
+    
+    # TODO(human): Define these field-related attributes:
+    # 9. field-id (unique field identifier like "line-12a")
+    # 10. field-name (human-readable field label)
+    # 11. is-required (whether field must be filled)
+    # 12. min-value (minimum allowed numeric value)
+    # 13. max-value (maximum allowed numeric value)
+    
+    # TODO(human): Define these filing-related attributes:
+    # 14. filing-id (unique filing identifier)
+    # 15. submission-date (when form was submitted)
+    # 16. filing-status (draft, submitted, accepted, rejected)
+    # 17. year (tax year as whole number)
+    
+    close

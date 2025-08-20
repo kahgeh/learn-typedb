@@ -1,10 +1,20 @@
 # TypeDB Tax System Learning Exercises
 
-A structured learning path for mastering TypeDB through tax system queries, progressing from simple entity queries to complex real-world tax calculations.
+A comprehensive learning path for mastering TypeDB by progressively building a complete tax system, from basic schema definitions to complex real-world tax calculations.
 
 ## Learning Path Overview
 
-The exercises are organized in three levels with increasing complexity:
+The exercises are organized in four levels with increasing complexity:
+
+### 🔵 Foundation (Exercises 00a-00g)
+**Focus**: Building the tax system schema progressively
+- Defining tax system attributes (IDs, dates, amounts)
+- Creating core entities (taxpayer, filing, forms)
+- Modeling tax relationships (filing-relation, form-applicable)
+- Advanced schema with fields and validations
+- Inserting tax data (taxpayers, filings, forms)
+- Deleting sensitive data and drafts safely
+- Updating tax records (status changes, amendments)
 
 ### 🟢 Beginner (Exercises 01-03)
 **Focus**: Basic TypeQL syntax and entity queries
@@ -30,8 +40,16 @@ The exercises are organized in three levels with increasing complexity:
 
 | Exercise | Title | Difficulty | Key Concepts |
 |----------|-------|------------|--------------|
+| 00a | Define Tax Attributes | 🔵 Foundation | Tax system attributes, value types |
+| 00b | Define Core Tax Entities | 🔵 Foundation | Taxpayer, filing, forms with @key |
+| 00c | Define Tax Relations | 🔵 Foundation | Filing relations, tax periods |
+| 00d | Advanced Tax Schema | 🔵 Foundation | Form fields, validations, calculations |
+| 00e | Insert Tax Data | 🔵 Foundation | Creating taxpayers and filings |
+| 00f | Delete Tax Data | 🔵 Foundation | Privacy, draft cleanup, cascading |
+| 00g | Update Tax Records | 🔵 Foundation | Status updates, amendments |
 | 01 | List All Taxpayers | 🟢 Beginner | Entity matching, basic select |
 | 02 | Find Required Fields | 🟢 Beginner | Attribute filtering, boolean values |
+| 02a | Tax Data Migration | 🟢 Beginner | Migrating legacy tax data |
 | 03 | Forms by Category | 🟢 Beginner | Grouping, multiple attributes |
 | 04 | Reverse Field Dependencies | 🟡 Intermediate | Relation roles, dependency graphs |
 | 05 | Form Fields by Section | 🟡 Intermediate | Relation attributes, ordering |
@@ -73,24 +91,39 @@ Solutions are intentionally not provided. The learning comes from:
 
 ## Progression Tips
 
-1. **Complete exercises in order** - Each builds on previous concepts
-2. **Read the context carefully** - Understanding the domain helps write better queries
-3. **Start simple** - Get a basic query working, then refine
-4. **Use the console interactively** - Test parts of your query incrementally
-5. **Reference the documentation** - Located in `docs/typedb-docs-3.x/core-concepts/`
+1. **Start with Foundation exercises (00a-00d)** - Learn to define schemas before querying
+2. **Complete exercises in order** - Each builds on previous concepts
+3. **Read the context carefully** - Understanding the domain helps write better queries
+4. **Start simple** - Get a basic query working, then refine
+5. **Use the console interactively** - Test parts of your query incrementally
+6. **Reference the documentation** - Located in `docs/typedb-docs-3.x/core-concepts/`
+7. **For schema exercises** - Create a test database to practice without affecting the main tax-system database
 
-## Domain Context
+## Domain Context: Tax System
 
-The tax system model includes:
-- **Entities**: taxpayer, form-type, form-definition, field-definition, validation-rule
-- **Relations**: filing, field-containment, field-dependency, calculation, field-validation
-- **Attributes**: ssn, field-id, calculation-expression, severity, etc.
+All exercises use a single, comprehensive tax system domain that you build progressively:
 
-This mirrors real tax software where:
-- Forms contain fields in sections
-- Fields depend on other fields
-- Calculations cascade through the system
-- Validations ensure data integrity
+### Foundation Level (00a-00g)
+Start with core components:
+- **Basic Entities**: taxpayer, tax-year, return-type, filing
+- **Core Relations**: filing-relation, filing-period, form-applicable
+- **Essential Attributes**: taxpayer-id, filing-status, year, form-code
+
+### Intermediate Level (00d and beyond)
+Add complexity:
+- **Advanced Entities**: form-definition, field-definition, validation-rule
+- **Complex Relations**: field-containment, field-dependency, calculation
+- **Specialized Attributes**: calculation-expression, rule-expression, severity
+
+### Complete System
+The full schema mirrors real tax software:
+- Forms contain fields organized in sections
+- Fields have dependencies and calculations
+- Validations ensure compliance
+- Temporal versioning tracks changes
+- Classifications categorize taxpayers
+
+By building the schema progressively, you understand both HOW to model in TypeDB and WHY each design decision matters for real-world tax systems.
 
 ## Getting Stuck?
 
