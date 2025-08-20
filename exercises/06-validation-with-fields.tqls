@@ -1,0 +1,25 @@
+# Exercise 06: Validation Rules with Their Fields
+# Difficulty: Intermediate
+#
+# Task: Find all validation rules and the fields they validate.
+#
+# Learning Goals:
+# - Joining multiple relations
+# - Working with field-validation relation
+# - Combining entity attributes with relation data
+#
+# Context:
+# - field-validation relates field-definition to validation-rule
+# - Each rule has severity and error-message attributes
+#
+# Expected Output:
+# - Field names with their validation rules
+# - Include rule expression and severity level
+
+transaction read tax-system
+    # TODO(human): Write your query here
+    # Match field-validation relations
+    # Get both the field name and the rule details
+    # Include severity to prioritize critical validations
+    
+    close

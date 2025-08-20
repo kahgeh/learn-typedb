@@ -1,0 +1,45 @@
+# Exercise 09: Complete Tax Filing Workflow
+# Difficulty: Advanced (Real-world complexity)
+#
+# Task: For a given taxpayer (SSN: 123-45-6789), trace their complete tax filing:
+#       1. Find all their W-2 forms and income sources
+#       2. Calculate their gross income
+#       3. Apply standard deduction
+#       4. Check which tax credits they qualify for
+#       5. Validate all required fields are present
+#
+# Learning Goals:
+# - Combining multiple relation types in one query
+# - Real-world tax calculation workflow
+# - Data validation and completeness checking
+#
+# Context:
+# - This mirrors actual tax software logic
+# - Multiple forms feed into the main 1040
+# - Calculations cascade through the system
+#
+# Expected Output:
+# - Complete tax calculation workflow for the taxpayer
+# - All income sources and their amounts
+# - Deductions and credits applied
+# - Any validation errors or missing fields
+
+transaction read tax-system
+    # TODO(human): Build the complete workflow query
+    # Start by finding the taxpayer and their filing
+    # Then trace through income, deductions, and credits
+    # Finally, check for validation issues
+    
+    # Part 1: Find taxpayer and their forms
+    match
+        $taxpayer isa taxpayer, has ssn "123-45-6789";
+        $filing (filer: $taxpayer, submitted-form: $form) isa filing;
+    select $taxpayer, $form;
+    
+    # Part 2: Add income calculation logic
+    
+    # Part 3: Add deduction and credit logic
+    
+    # Part 4: Add validation checks
+    
+    close

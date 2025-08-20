@@ -1,0 +1,24 @@
+# Exercise 04: Reverse Field Dependencies
+# Difficulty: Intermediate
+#
+# Task: Find all fields that depend on GROSS_INCOME (the reverse of the example query).
+#
+# Learning Goals:
+# - Understanding relation patterns
+# - Working with role players (source-field, target-field)
+# - Reversing relation queries
+#
+# Context:
+# - field-dependency is a relation with roles: source-field and target-field
+# - source-field depends on target-field
+#
+# Expected Output:
+# - All fields that have GROSS_INCOME as their source
+# - Show the dependent field IDs
+
+transaction read tax-system
+    # TODO(human): Write your query here
+    # Find field-dependency relations where GROSS_INCOME is the source
+    # Remember: if A depends on B, then A is target and B is source
+    
+    close

@@ -1,0 +1,22 @@
+# Exercise 03: Forms by Category
+# Difficulty: Beginner
+#
+# Task: Group all form types by their category (individual, business, or informational).
+#
+# Learning Goals:
+# - Matching with attribute constraints
+# - Using variables to capture attribute values
+# - Selecting multiple variables
+#
+# Expected Output:
+# - Form types grouped by category
+# - Show form-code, form-name, and category
+#
+# Example categories: "individual", "business", "informational"
+
+transaction read tax-system
+    # TODO(human): Write your query here
+    # Match form-type entities and their category attribute
+    # Select both the form and its category
+    
+    close

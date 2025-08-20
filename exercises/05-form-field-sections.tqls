@@ -1,0 +1,27 @@
+# Exercise 05: Form Fields by Section
+# Difficulty: Intermediate
+#
+# Task: For Form 1040, list all fields organized by their section names.
+#
+# Learning Goals:
+# - Working with field-containment relations
+# - Accessing relation attributes (section-name, field-order)
+# - Joining entity and relation data
+#
+# Context:
+# - field-containment relates forms to fields
+# - The relation has attributes: section-name and field-order
+#
+# Expected Output:
+# - Fields grouped by section (e.g., "Income", "Deductions")
+# - Ordered by field-order within each section
+
+transaction read tax-system
+    match
+        $form isa form-definition, has version "1040-2024-v1";
+        $rel (container: $form, contained-field: $field) isa field-containment;
+        $rel has section-name $section, has field-order $order;
+        $field has field-name $name;
+    select $section, $order, $name;
+    
+    close

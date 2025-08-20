@@ -38,22 +38,7 @@ transaction read tax-system
 
 ## Learning Exercises
 
-### Exercise 1: Modify Field Dependencies
-Create a new query to find fields that depend on GROSS_INCOME (reverse of query 04).
-
-### Exercise 2: Required Fields Query
-Create a query to find all required fields:
-```typeql
-transaction read tax-system
-    match 
-        $field isa field-definition, has is-required true;
-    select $field;
-    
-    close
-```
-
-### Exercise 3: Tax Year Comparison
-Write a query to compare forms available in 2023 vs 2024.
+The learning exercises have been moved to the `exercises/` directory for a structured learning path with gradually increasing complexity. See [exercises/README.md](../exercises/README.md) for the complete progression guide.
 
 ## TypeDB 3.0 Notes
 

@@ -1,0 +1,22 @@
+# Exercise 02: Find Required Fields  
+# Difficulty: Beginner
+#
+# Task: Find all field definitions that are marked as required.
+#
+# Learning Goals:
+# - Matching entities with specific attributes
+# - Using 'has' to filter by attribute values
+# - Working with boolean attributes
+#
+# Expected Output:
+# - All field-definition entities where is-required is true
+# - Should show field-id and field-name for each
+#
+# Hint: Use 'has is-required true' to filter
+
+transaction read tax-system
+    match 
+        $field isa field-definition, has is-required true;
+    select $field;
+    
+    close

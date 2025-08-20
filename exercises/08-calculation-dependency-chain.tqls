@@ -1,0 +1,35 @@
+# Exercise 08: Calculation Dependency Chain
+# Difficulty: Advanced
+#
+# Task: Trace the complete calculation chain for AGI (Adjusted Gross Income).
+#       Find all fields that contribute to AGI calculation, directly or indirectly.
+#
+# Learning Goals:
+# - Recursive relation traversal
+# - Understanding calculation dependencies
+# - Building complex calculation trees
+#
+# Context:
+# - calculation relation connects input and result fields
+# - Some calculations depend on results of other calculations
+# - AGI depends on GROSS_INCOME which depends on multiple sources
+#
+# Expected Output:
+# - Complete dependency tree showing:
+#   * Direct inputs to AGI
+#   * Inputs to those inputs (indirect dependencies)
+#   * The calculation expressions at each level
+
+transaction read tax-system
+    match
+        $calc isa calculation;
+        $calc (input-field: $input, result-field: $result) isa calculation;
+        $result has field-id "AGI";
+        $input has field-id $input-id;
+        $calc has calculation-expression $expr;
+    select $input-id, $expr;
+    
+    # TODO(human): Extend this to find indirect dependencies
+    # Hint: You may need multiple queries or recursive patterns
+    
+    close

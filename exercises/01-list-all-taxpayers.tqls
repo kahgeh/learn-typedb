@@ -1,0 +1,21 @@
+# Exercise 01: List All Taxpayers
+# Difficulty: Beginner
+# 
+# Task: Write a query to list all taxpayers in the system.
+# 
+# Learning Goals:
+# - Basic entity matching with 'isa'
+# - Using 'select' to return results
+# - Understanding transaction structure
+#
+# Expected Output:
+# - List of taxpayer entities with their SSN and names
+#
+# Hint: Taxpayers are entities of type 'taxpayer'
+
+transaction read tax-system
+    # TODO(human): Write your query here
+    # Start with: match $t isa ...
+    # End with: select $t;
+    
+    close

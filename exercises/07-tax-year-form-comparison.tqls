@@ -1,0 +1,26 @@
+# Exercise 07: Tax Year Form Comparison
+# Difficulty: Advanced
+#
+# Task: Compare which forms are available in 2023 vs 2024 tax years.
+#       Find forms that exist in both years and those unique to each year.
+#
+# Learning Goals:
+# - Complex pattern matching with multiple conditions
+# - Using negation or optional patterns
+# - Comparing data across different contexts
+#
+# Context:
+# - form-applicability relates tax-year to form-type
+# - Forms may have different versions across years
+#
+# Expected Output:
+# - Forms available in 2024 but not 2023
+# - Forms available in both years
+# - Any deprecated forms (2023 only)
+
+transaction read tax-system
+    # TODO(human): Write your query here
+    # Strategy: First find 2024 forms, then check if they exist in 2023
+    # Consider using multiple queries or optional patterns
+    
+    close
