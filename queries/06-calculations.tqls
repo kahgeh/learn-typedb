@@ -1,0 +1,9 @@
+transaction read tax-system
+    match 
+        $calc isa calculation;
+        $calc (input-field: $input, output-field: $output) isa calculation;
+        $input has field-id $in-id;
+        $output has field-id $out-id;
+    select $calc, $in-id, $out-id;
+    
+    close

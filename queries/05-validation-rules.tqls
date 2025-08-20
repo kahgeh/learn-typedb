@@ -1,0 +1,5 @@
+transaction read tax-system
+    match $rule isa validation-rule;
+    select $rule;
+    
+    close

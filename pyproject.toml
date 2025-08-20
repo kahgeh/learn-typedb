@@ -1,0 +1,32 @@
+[project]
+name = "typedb-tax-system"
+version = "0.1.0"
+description = "Learning TypeDB through tax system modeling"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "typedb-driver>=3.4.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "black>=24.10.0",
+    "ruff>=0.8.6",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]

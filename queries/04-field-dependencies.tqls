@@ -1,0 +1,9 @@
+transaction read tax-system
+    match
+        $dep isa field-dependency;
+        $dep (source-field: $source, target-field: $target) isa field-dependency;
+        $source has field-id "W2_WAGES";
+        $target has field-id $target-id;
+    select $dep, $target-id;
+    
+    close

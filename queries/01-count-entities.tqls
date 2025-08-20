@@ -1,0 +1,6 @@
+transaction read tax-system
+    match $x isa tax-year; select $x; 
+
+    close
+
+

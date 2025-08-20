@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+scripts/query_examples.py
+scripts/setup_database.py
+typedb_tax_system.egg-info/PKG-INFO
+typedb_tax_system.egg-info/SOURCES.txt
+typedb_tax_system.egg-info/dependency_links.txt
+typedb_tax_system.egg-info/requires.txt
+typedb_tax_system.egg-info/top_level.txt

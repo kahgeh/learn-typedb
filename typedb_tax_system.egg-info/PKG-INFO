@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: typedb-tax-system
+Version: 0.1.0
+Summary: Learning TypeDB through tax system modeling
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: typedb-driver>=3.4.4
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.4; extra == "dev"
+Requires-Dist: black>=24.10.0; extra == "dev"
+Requires-Dist: ruff>=0.8.6; extra == "dev"
+
+# TypeDB for Tax Compliance Systems
+
+A hands-on exploration of TypeDB for building intelligent tax form generation and validation systems.
+
+## Overview
+
+This repository explores how TypeDB's knowledge graph capabilities can model:
+- Tax form structures and relationships
+- Validation rules and constraints
+- Calculation dependencies
+- Multi-jurisdiction rule systems
+- Temporal rule changes
+
+## Why TypeDB for Tax Systems?
+
+1. **Semantic Modeling**: Tax rules are inherently semantic - "income", "deductions", "dependents" have specific meanings and relationships
+2. **Rule Inference**: TypeDB's rule engine can infer derived values and validate consistency
+3. **Temporal Versioning**: Tax rules change yearly - TypeDB can handle temporal data
+4. **Complex Relationships**: Forms reference other forms, fields depend on other fields
+5. **Data Integrity**: Strong typing and constraints ensure valid tax data
+
+## Project Structure
+
+```
+├── schemas/           # TypeDB schema definitions
+├── data/             # Sample tax data and rules
+├── queries/          # TypeQL query examples
+├── scripts/          # Python scripts for TypeDB interaction
+└── docs/             # Learning notes and diagrams
+```
+
+## Getting Started
+
+1. Ensure TypeDB Community Edition is installed and running
+2. Create the tax database: `typedb console --command="database create tax-system"`
+3. Load the schema: `typedb console --database=tax-system --file=schemas/tax-schema.tql --mode=schema`
+
+## Learning Path
+
+1. **Schema Design**: Model forms, fields, and rules
+2. **Data Loading**: Insert tax form definitions and rules
+3. **Validation Rules**: Implement constraint checking
+4. **Calculations**: Model field dependencies and computations
+5. **Queries**: Extract form structures for UI generation
+6. **Inference**: Use rules to derive values and validate submissions

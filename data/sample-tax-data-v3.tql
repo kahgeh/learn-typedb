@@ -1,0 +1,110 @@
+insert
+
+# Tax Years
+$ty2024 isa tax-year,
+    has year 2024,
+    has start-date 2024-01-01T00:00:00,
+    has end-date 2024-12-31T23:59:59,
+    has jurisdiction "US-FEDERAL";
+
+$ty2023 isa tax-year,
+    has year 2023,
+    has start-date 2023-01-01T00:00:00,
+    has end-date 2023-12-31T23:59:59,
+    has jurisdiction "US-FEDERAL";
+
+# Form Types
+$form1040 isa return-type,
+    has form-code "1040",
+    has form-name "U.S. Individual Income Tax Return",
+    has description "Main tax return form for individuals",
+    has jurisdiction "US-FEDERAL",
+    has category "PRIMARY";
+
+$scheduleA isa return-type,
+    has form-code "SCHEDULE_A",
+    has form-name "Itemized Deductions",
+    has description "Itemized deductions schedule",
+    has jurisdiction "US-FEDERAL",
+    has category "SCHEDULE";
+
+# Form Definitions
+$form1040v2024 isa form-definition,
+    has version "1040-2024-v1",
+    has effective-date 2024-01-01T00:00:00,
+    has status "ACTIVE";
+
+# Field Definitions  
+$field-ssn isa field-definition,
+    has field-id "1040_SSN",
+    has field-name "Social Security Number",
+    has field-type "INPUT",
+    has data-type "STRING",
+    has is-required true,
+    has regex-pattern "^\\d{3}-\\d{2}-\\d{4}$",
+    has help-text "Enter your SSN in format XXX-XX-XXXX";
+
+$field-wages isa field-definition,
+    has field-id "W2_WAGES",
+    has field-name "Wages, tips, other compensation",
+    has field-type "INPUT",
+    has data-type "DECIMAL",
+    has is-required false,
+    has min-value 0.0,
+    has help-text "Box 1 from your W-2";
+
+$field-gross-income isa field-definition,
+    has field-id "GROSS_INCOME",
+    has field-name "Gross Income",
+    has field-type "CALCULATED",
+    has data-type "DECIMAL",
+    has is-required true,
+    has help-text "Total income from all sources";
+
+# Sample Taxpayer
+$taxpayer1 isa taxpayer,
+    has taxpayer-id "TAX-001",
+    has full-name "John Doe",
+    has date-of-birth 1985-06-15T00:00:00,
+    has tax-identifier "123-45-6789";
+
+# Relations
+(applicable-year: $ty2024, return-type: $form1040) isa form-applicable;
+(applicable-year: $ty2024, return-type: $scheduleA) isa form-applicable;
+
+(container: $form1040v2024, contained-field: $field-ssn) isa field-containment,
+    has field-order 1,
+    has section-name "Personal Information";
+
+(container: $form1040v2024, contained-field: $field-wages) isa field-containment,
+    has field-order 10,
+    has section-name "Income";
+
+(container: $form1040v2024, contained-field: $field-gross-income) isa field-containment,
+    has field-order 15,
+    has section-name "Income";
+
+(source-field: $field-wages, target-field: $field-gross-income) isa field-dependency,
+    has dependency-type "CONTRIBUTES_TO_SUM",
+    has condition-expression "w2_wages + other_income = gross_income";
+
+(input-field: $field-wages, output-field: $field-gross-income) isa calculation,
+    has calculation-expression "SUM(w2_wages, interest_income, dividend_income)",
+    has calculation-type "SUMMATION";
+
+(validated-field: $field-ssn) isa validation-rule,
+    has rule-expression "REGEX_MATCH('^\\d{3}-\\d{2}-\\d{4}$')",
+    has error-message "SSN must be in format XXX-XX-XXXX",
+    has severity "ERROR";
+
+(validated-field: $field-wages) isa validation-rule,
+    has rule-expression "value >= 0",
+    has error-message "Wages cannot be negative",
+    has severity "ERROR";
+
+(classified-entity: $taxpayer1) isa taxpayer-classification,
+    has classification-type "filing-status",
+    has classification-value "single";
+
+(dependent-form: $scheduleA, prerequisite-form: $form1040) isa form-dependency,
+    has dependency-reason "Schedule A requires Form 1040 as main return";

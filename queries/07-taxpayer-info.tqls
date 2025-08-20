@@ -1,0 +1,7 @@
+transaction read tax-system
+    match 
+        $taxpayer isa taxpayer;
+        $class (classified-entity: $taxpayer) isa taxpayer-classification;
+    select $taxpayer, $class;
+    
+    close

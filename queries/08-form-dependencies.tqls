@@ -1,0 +1,9 @@
+transaction read tax-system
+    match 
+        $dep isa form-dependency;
+        $dep (dependent-form: $dependent, prerequisite-form: $prereq) isa form-dependency;
+        $dependent has form-code $dep-code;
+        $prereq has form-code $pre-code;
+    select $dep-code, $pre-code, $dep;
+    
+    close

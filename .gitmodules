@@ -1,0 +1,4 @@
+[submodule "docs/typedb-docs-3.x"]
+	path = docs/typedb-docs-3.x
+	url = https://github.com/typedb/typedb-docs.git
+	branch = 3.x-development

@@ -1,0 +1,4 @@
+transaction read tax-system
+    match $x isa return-type; select $x;
+    
+    close

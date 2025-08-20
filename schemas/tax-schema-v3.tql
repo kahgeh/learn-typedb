@@ -1,0 +1,180 @@
+define
+
+# Attributes
+attribute year, value integer;
+attribute start-date, value datetime;
+attribute end-date, value datetime;
+attribute jurisdiction, value string;
+attribute form-code, value string;
+attribute form-name, value string;
+attribute description, value string;
+attribute category, value string;
+attribute version, value string;
+attribute effective-date, value datetime;
+attribute expiry-date, value datetime;
+attribute status, value string;
+attribute field-id, value string;
+attribute field-name, value string;
+attribute field-type, value string;
+attribute data-type, value string;
+attribute is-required, value boolean;
+attribute min-value, value double;
+attribute max-value, value double;
+attribute regex-pattern, value string;
+attribute help-text, value string;
+attribute taxpayer-id, value string;
+attribute full-name, value string;
+attribute date-of-birth, value datetime;
+attribute tax-identifier, value string;
+attribute filing-id, value string;
+attribute submission-date, value datetime;
+attribute filing-status, value string;
+attribute amendment-number, value integer;
+attribute field-order, value integer;
+attribute section-name, value string;
+attribute dependency-type, value string;
+attribute condition-expression, value string;
+attribute dependency-reason, value string;
+attribute calculation-expression, value string;
+attribute calculation-type, value string;
+attribute rule-expression, value string;
+attribute error-message, value string;
+attribute severity, value string;
+attribute value-text, value string;
+attribute value-number, value double;
+attribute value-date, value datetime;
+attribute value-boolean, value boolean;
+attribute validation-timestamp, value datetime;
+attribute is-blocking, value boolean;
+attribute classification-type, value string;
+attribute classification-value, value string;
+attribute migration-notes, value string;
+
+# Entities
+entity tax-year,
+    owns year @key,
+    owns start-date,
+    owns end-date,
+    owns jurisdiction,
+    plays form-applicable:applicable-year,
+    plays filing-period:tax-period;
+
+entity return-type,
+    owns form-code @key,
+    owns form-name,
+    owns description,
+    owns jurisdiction,
+    owns category,
+    plays form-applicable:return-type,
+    plays form-dependency:dependent-form,
+    plays form-dependency:prerequisite-form;
+
+entity form-definition,
+    owns version @key,
+    owns effective-date,
+    owns expiry-date,
+    owns status,
+    plays form-versioning:current-version,
+    plays form-versioning:previous-version,
+    plays field-containment:container;
+
+entity field-definition,
+    owns field-id @key,
+    owns field-name,
+    owns field-type,
+    owns data-type,
+    owns is-required,
+    owns min-value,
+    owns max-value,
+    owns regex-pattern,
+    owns help-text,
+    plays field-containment:contained-field,
+    plays field-dependency:source-field,
+    plays field-dependency:target-field,
+    plays calculation:input-field,
+    plays calculation:output-field,
+    plays validation-rule:validated-field;
+
+entity taxpayer,
+    owns taxpayer-id @key,
+    owns full-name,
+    owns date-of-birth,
+    owns tax-identifier,
+    plays filing-relation:filer,
+    plays taxpayer-classification:classified-entity;
+
+entity filing,
+    owns filing-id @key,
+    owns submission-date,
+    owns filing-status,
+    owns amendment-number,
+    plays field-value:parent-filing,
+    plays validation-result:validated-filing,
+    plays filing-relation:tax-filing,
+    plays filing-period:tax-filing;
+
+# Relations
+relation form-applicable,
+    relates applicable-year,
+    relates return-type;
+
+relation form-versioning,
+    relates current-version,
+    relates previous-version,
+    owns migration-notes;
+
+relation field-containment,
+    relates container,
+    relates contained-field,
+    owns field-order,
+    owns section-name;
+
+relation field-dependency,
+    relates source-field,
+    relates target-field,
+    owns dependency-type,
+    owns condition-expression;
+
+relation form-dependency,
+    relates dependent-form,
+    relates prerequisite-form,
+    owns dependency-reason;
+
+relation calculation,
+    relates input-field,
+    relates output-field,
+    owns calculation-expression,
+    owns calculation-type;
+
+relation validation-rule,
+    relates validated-field,
+    owns rule-expression,
+    owns error-message,
+    owns severity;
+
+relation field-value,
+    relates parent-filing,
+    relates value-field,
+    owns value-text,
+    owns value-number,
+    owns value-date,
+    owns value-boolean;
+
+relation validation-result,
+    relates validated-filing,
+    relates failed-rule,
+    owns validation-timestamp,
+    owns is-blocking;
+
+relation taxpayer-classification,
+    relates classified-entity,
+    owns classification-type,
+    owns classification-value;
+
+relation filing-relation,
+    relates filer,
+    relates tax-filing;
+
+relation filing-period,
+    relates tax-period,
+    relates tax-filing;

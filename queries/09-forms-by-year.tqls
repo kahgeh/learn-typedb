@@ -1,0 +1,8 @@
+transaction read tax-system
+    match 
+        $year isa tax-year, has year 2024;
+        $rel (applicable-year: $year, return-type: $form) isa form-applicable;
+        $form has form-code $code, has form-name $name;
+    select $code, $name;
+    
+    close

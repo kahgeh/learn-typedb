@@ -1,0 +1,6 @@
+typedb-driver>=3.4.4
+
+[dev]
+pytest>=8.3.4
+black>=24.10.0
+ruff>=0.8.6
