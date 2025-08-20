@@ -1,0 +1,76 @@
+transaction schema tax-system
+# Exercise 00d3: Define Custom Typed Functions
+# Difficulty: Intermediate
+# 
+# Task: Define reusable typed functions for tax calculations.
+#       These functions become part of the schema and can be called from queries.
+# 
+# Learning Goals:
+# - Function syntax and type signatures
+# - Scalar vs stream return types
+# - Function composition (calling functions from functions)
+# - Using functions for business logic encapsulation
+#
+# Context:
+# Tax calculations have complex rules that benefit from encapsulation:
+# - Standard deduction varies by filing status
+# - Tax brackets apply different rates to income ranges
+# - Credits phase out at certain income levels
+# - Penalties compound based on late filing duration
+#
+# Expected Result:
+# Schema enhanced with calculation functions
+#
+# Example 1: Simple scalar function for standard deduction
+define
+
+fun get_standard_deduction($status: filing-status) -> double:
+    match
+        $status has status-name $name;
+        # In real system, would look up from a configuration/table
+        # For now, using conditional logic with let statements
+        { ?name == "single"; let $deduction = 13850.0; } or
+        { ?name == "married-filing-jointly"; let $deduction = 27700.0; } or  
+        { ?name == "head-of-household"; let $deduction = 20800.0; } or
+        { let $deduction = 13850.0; };  # default
+    return first $deduction;
+
+# Example 2: Stream function returning all income sources
+fun get_income_sources($taxpayer: taxpayer) -> { income }:
+    match
+        $taxpayer has income $income;
+    return { $income };
+
+# Example 3: Calculate adjusted gross income (AGI)
+fun calculate_agi($taxpayer: taxpayer) -> double:
+    match
+        $taxpayer has income $income;
+        # In practice, would also subtract above-the-line deductions
+    reduce $total = sum($income);
+
+# Example 4: Function composition - tax calculation calling other functions
+fun calculate_taxable_income($taxpayer: taxpayer, $status: filing-status) -> double:
+    match
+        let $agi = calculate_agi($taxpayer);
+        let $standard-ded = get_standard_deduction($status);
+        let $taxable = $agi - $standard-ded;
+        # Ensure non-negative
+        { ?taxable > 0; } or { let $taxable = 0.0; };
+    return first $taxable;
+
+# TODO(human): Define these functions:
+# 1. fun calculate_tax_bracket_rate($income: double) -> double:
+#    Returns the marginal tax rate based on income level
+#    Use these simplified brackets:
+#    - 0-11000: 10% (0.10)
+#    - 11001-44725: 12% (0.12)  
+#    - 44726-95375: 22% (0.22)
+#    - 95376+: 24% (0.24)
+#
+# 2. fun calculate_child_tax_credit($dependents: integer, $agi: double) -> double:
+#    Returns child tax credit amount
+#    - $2000 per dependent
+#    - Phases out when AGI > $200,000 (reduce by $50 per $1000 over limit)
+#    - Never less than 0
+
+commit

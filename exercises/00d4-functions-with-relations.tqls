@@ -1,0 +1,96 @@
+transaction schema tax-system
+# Exercise 00d4: Functions Integrated with Relations
+# Difficulty: Intermediate-Advanced
+# 
+# Task: Define functions that work with relations and complex schema patterns.
+#       Show how functions can encapsulate business logic involving multiple entities.
+# 
+# Learning Goals:
+# - Functions that traverse relations
+# - Returning tuples from functions
+# - Functions that create derived insights
+# - Recursive function patterns
+#
+# Context:
+# Tax logic often involves complex relationships:
+# - Dependent qualifications based on relationship and support provided
+# - Income attribution between spouses or business partners
+# - Carry-forward losses from previous years
+# - Multi-state income allocation based on time/presence
+#
+# Expected Result:
+# Functions that encapsulate complex relational logic
+#
+define
+
+# Example 1: Function checking if someone qualifies as a dependent
+fun qualifies_as_dependent($taxpayer: taxpayer, $potential_dep: taxpayer) -> boolean:
+    match
+        # Check if there's a dependency relation
+        dependency($taxpayer, $potential_dep) has support-percentage $support;
+        $potential_dep has income $dep-income;
+        # Dependent must have low income and high support
+        ?dep-income < 4700;
+        ?support > 50;
+        let $qualifies = true;
+    return first $qualifies;
+
+# Example 2: Calculate total deductions from all sources (tuple return)
+fun get_deductions_summary($taxpayer: taxpayer) -> double, integer, string:
+    match
+        filing($taxpayer, $form);
+        deduction($form, $category);
+        $category has amount $amount, has category-name $cat-name;
+    reduce 
+        $total = sum($amount),
+        $count = count($category),
+        $categories = first($cat-name);  # Example: would concatenate in real system
+
+# Example 3: Stream function finding all related taxpayers
+fun get_related_taxpayers($taxpayer: taxpayer) -> { taxpayer, string }:
+    match
+        { 
+            dependency:supporter($taxpayer) isa dependency,
+                relates $dependent as dependency:dependent;
+            $dependent isa taxpayer;
+            let $relationship = "dependent";
+        } or {
+            joint-filing:primary($taxpayer) isa joint-filing,
+                relates $spouse as joint-filing:spouse;
+            $spouse isa taxpayer;
+            let $relationship = "spouse";
+        } or {
+            partnership:partner($taxpayer) isa partnership,
+                relates $partner as partnership:partner;
+            $partner isa taxpayer;
+            not { $partner = $taxpayer; };
+            let $relationship = "business-partner";
+        };
+    return { $dependent, $relationship };
+
+# Example 4: Recursive function to calculate carry-forward losses
+fun calculate_total_carryforward($year: integer, $taxpayer: taxpayer) -> double:
+    match
+        # Base case: find losses for the given year
+        carryforward-loss($taxpayer, $year) has amount $loss;
+        # Recursive case: add previous year's carryforward
+        let $previous-year = $year - 1;
+        {
+            ?previous-year >= 2019;  # Stop at 2019
+            let $previous-carry = calculate_total_carryforward($previous-year, $taxpayer);
+            let $total = $loss + $previous-carry;
+        } or {
+            let $total = $loss;
+        };
+    return first $total;
+
+# TODO(human): Define this function:
+# fun calculate_household_income($taxpayer: taxpayer) -> double, integer:
+#    Calculate total household income including:
+#    1. Taxpayer's own income
+#    2. Spouse's income (if joint filing exists)
+#    3. Dependent's income (if any dependents)
+#    Returns: (total_income, number_of_people)
+#    Hint: Use pattern disjunction { } or { } to handle different cases
+
+commit

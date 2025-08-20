@@ -1,0 +1,59 @@
+{
+  "id": "tax-123-45-6789-2024",
+  "type": "federal-income-tax",
+  "value": 14663.0,
+  "formula": "taxable_income($66650) * rate(22%)",
+  "note": "Federal income tax using 22% bracket",
+  "children": [
+    {
+      "id": "taxable-123-45-6789-2024",
+      "type": "taxable-income",
+      "value": 66650.0,
+      "formula": "AGI($80500) - std_deduction($13850)",
+      "note": "Form 1040 Line 15",
+      "children": [
+        {
+          "id": "agi-123-45-6789-2024",
+          "type": "adjusted-gross-income",
+          "value": 80500.0,
+          "formula": "sum(W2 + 1099 + other_income)",
+          "note": "Total AGI per Form 1040 Line 11",
+          "children": [
+            {
+              "id": "income-step-1",
+              "type": "income-component",
+              "value": 65000.0,
+              "formula": null,
+              "note": "Income source",
+              "children": []
+            },
+            {
+              "id": "income-step-2",
+              "type": "income-component",
+              "value": 12000.0,
+              "formula": null,
+              "note": "Income source",
+              "children": []
+            },
+            {
+              "id": "income-step-3",
+              "type": "income-component",
+              "value": 3500.0,
+              "formula": null,
+              "note": "Income source",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "std-ded-123-45-6789-2024",
+          "type": "standard-deduction",
+          "value": 13850.0,
+          "formula": "lookup_standard_deduction(single)",
+          "note": "2024 standard deduction for single",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

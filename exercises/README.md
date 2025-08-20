@@ -44,6 +44,13 @@ The exercises are organized in four levels with increasing complexity:
 | 00b | Define Core Tax Entities | 🔵 Foundation | Taxpayer, filing, forms with @key |
 | 00c | Define Tax Relations | 🔵 Foundation | Filing relations, tax periods |
 | 00d | Advanced Tax Schema | 🔵 Foundation | Form fields, validations, calculations |
+| 00d1 | Expressions and Operators | 🔵 Foundation-Intermediate | Arithmetic operators, let statements, type conversions |
+| 00d2 | Reduction Functions | 🔵 Foundation-Intermediate | Aggregates (sum, mean, max), groupby, statistics |
+| 00d3 | Define Custom Functions | 🟡 Intermediate | Typed functions, scalar/stream returns, composition |
+| 00d4 | Functions with Relations | 🟡 Intermediate-Advanced | Relational functions, tuples, recursion |
+| 00d5 | Query with Functions | 🟡 Intermediate-Advanced | Function calls in queries, complex calculations |
+| 00d6 | Audit Trail Schema (Walkthrough) | 🔴 Advanced | Calculation lineage, audit relations, dependency tracking |
+| 00d7 | Query Audit Trails (Walkthrough) | 🔴 Advanced | Lineage queries, visualization exports, impact analysis |
 | 00e | Insert Tax Data | 🔵 Foundation | Creating taxpayers and filings |
 | 00f | Delete Tax Data | 🔵 Foundation | Privacy, draft cleanup, cascading |
 | 00g | Update Tax Records | 🔵 Foundation | Status updates, amendments |

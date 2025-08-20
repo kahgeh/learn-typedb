@@ -1,0 +1,47 @@
+transaction read tax-system
+# Exercise 00d1: Expressions and Built-in Operators
+# Difficulty: Foundation-Intermediate
+# 
+# Task: Practice using TypeQL expressions with arithmetic operators and value computations.
+#       Learn to work with typed values and perform calculations in queries.
+# 
+# Learning Goals:
+# - Using arithmetic operators (+, -, *, /, %)
+# - Working with type conversions
+# - Understanding expression evaluation
+# - Using let statements for intermediate values
+#
+# Context:
+# Tax calculations involve many arithmetic operations:
+# - Adding income from multiple sources
+# - Computing percentages for deductions
+# - Applying tax brackets with different rates
+# - Rounding to nearest dollar amounts
+#
+# Expected Result:
+# Multiple examples showing different expression capabilities
+#
+# Example 1: Basic arithmetic with let statements
+match
+    $taxpayer isa taxpayer, 
+        has income $wage,
+        has income $interest,
+        has income $dividends;
+    # Calculate total income using expressions
+    let $total-income = $wage + $interest + $dividends;
+    # Calculate estimated tax (simplified flat rate)
+    let $tax-rate = 0.22;
+    let $estimated-tax = $total-income * $tax-rate;
+    # Calculate after-tax income
+    let $after-tax = $total-income - $estimated-tax;
+    ?total-income > 50000;
+select $taxpayer, $total-income, $estimated-tax, $after-tax;
+
+# TODO(human): Write a query that:
+# 1. Finds taxpayers with dependents
+# 2. Calculates a standard deduction of $13850 plus $2000 per dependent
+# 3. Subtracts the deduction from total income to get taxable income
+# 4. Only returns taxpayers where taxable income > 0
+# Hint: Use has dependents $dep-count and let statements
+
+close

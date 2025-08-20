@@ -1,0 +1,256 @@
+transaction read tax-system
+# Exercise 00d7: Querying Audit Trails - Complete Walkthrough
+# Difficulty: Advanced
+# 
+# This walkthrough demonstrates how to query the audit trail system
+# to produce various audit reports and visualizations.
+#
+# ============================================================================
+# QUERY 1: Basic Audit Trail - Show All Steps for a Tax Calculation
+# ============================================================================
+
+# This query retrieves the complete calculation history for a taxpayer
+match
+    $taxpayer isa taxpayer, has ssn "123-45-6789";
+    $filing isa filing, has year 2024;
+    
+    # Find all calculation steps for this taxpayer/filing
+    calculation-context($step, $taxpayer, $filing);
+    $step owns calculation-id $id,
+          owns calculation-type $type,
+          owns output-value $value,
+          owns calculation-timestamp $timestamp;
+    
+    # Optional: get the formula if it exists
+    { $step owns calculation-formula $formula; } or { let $formula = "N/A"; };
+    { $step owns calculation-note $note; } or { let $note = ""; };
+    
+select $id, $type, $value, $formula, $note, $timestamp
+    sort $timestamp asc;
+
+# Expected output:
+# | id                    | type                    | value    | formula                           | note                              | timestamp            |
+# | income-123-45-6789... | income-component       | 65000.00 | N/A                              | W-2 or 1099 income               | 2024-03-15T10:30:00 |
+# | income-123-45-6789... | income-component       | 12000.00 | N/A                              | W-2 or 1099 income               | 2024-03-15T10:30:00 |
+# | agi-123-45-6789-2024  | adjusted-gross-income  | 77000.00 | sum(W2 + 1099 + other_income)   | Total AGI per Form 1040 Line 11 | 2024-03-15T10:31:00 |
+# | std-ded-123-45...     | standard-deduction     | 13850.00 | lookup_standard_deduction(single)| 2024 standard deduction          | 2024-03-15T10:32:00 |
+# | taxable-123-45...     | taxable-income         | 63150.00 | AGI($77000) - std_deduction...  | Form 1040 Line 15                | 2024-03-15T10:33:00 |
+# | tax-123-45-6789-2024  | federal-income-tax     | 13893.00 | taxable_income($63150) * rate.. | Federal income tax using 22%     | 2024-03-15T10:34:00 |
+
+# ============================================================================
+# QUERY 2: Dependency Tree - Show Parent-Child Relationships
+# ============================================================================
+
+# This query shows the calculation dependency tree structure
+match
+    $taxpayer isa taxpayer, has ssn "123-45-6789";
+    $filing isa filing, has year 2024;
+    
+    # Get parent-child relationships
+    calculation-context($parent, $taxpayer, $filing);
+    calculation-lineage($parent, $child) owns step-order $order;
+    
+    $parent owns calculation-type $parent-type,
+            owns output-value $parent-value;
+    $child owns calculation-type $child-type,
+           owns output-value $child-value;
+    
+select $parent-type, $parent-value, $child-type, $child-value, $order
+    sort $order asc;
+
+# Expected output (showing dependencies):
+# | parent_type            | parent_value | child_type         | child_value | order |
+# | adjusted-gross-income  | 77000.00    | income-component   | 65000.00   | 1     |
+# | adjusted-gross-income  | 77000.00    | income-component   | 12000.00   | 1     |
+# | taxable-income        | 63150.00    | adjusted-gross... | 77000.00   | 1     |
+# | taxable-income        | 63150.00    | standard-deduction | 13850.00   | 2     |
+# | federal-income-tax    | 13893.00    | taxable-income    | 63150.00   | 1     |
+
+# ============================================================================
+# QUERY 3: Reverse Lineage - Trace Back from Final Tax to All Inputs
+# ============================================================================
+
+# Starting from the final tax amount, trace back to all contributing calculations
+match
+    $taxpayer isa taxpayer, has ssn "123-45-6789";
+    $filing isa filing, has year 2024;
+    
+    # Find the final tax calculation
+    calculation-context($tax-step, $taxpayer, $filing);
+    $tax-step owns calculation-type "federal-income-tax",
+              owns output-value $tax-amount;
+    
+    # Find all ancestors (using transitive closure pattern)
+    {
+        # Level 0: The tax step itself
+        $step = $tax-step;
+        let $level = 0;
+    } or {
+        # Level 1: Direct dependencies
+        calculation-lineage($tax-step, $step);
+        let $level = 1;
+    } or {
+        # Level 2: Dependencies of dependencies
+        calculation-lineage($tax-step, $level1);
+        calculation-lineage($level1, $step);
+        let $level = 2;
+    } or {
+        # Level 3: Three levels deep
+        calculation-lineage($tax-step, $level1);
+        calculation-lineage($level1, $level2);
+        calculation-lineage($level2, $step);
+        let $level = 3;
+    };
+    
+    $step owns calculation-type $type,
+          owns output-value $value;
+    
+select $level, $type, $value
+    sort $level asc, $value desc;
+
+# Expected output (showing calculation hierarchy):
+# | level | type                    | value    |
+# | 0     | federal-income-tax     | 13893.00 |
+# | 1     | taxable-income         | 63150.00 |
+# | 2     | adjusted-gross-income  | 77000.00 |
+# | 2     | standard-deduction     | 13850.00 |
+# | 3     | income-component       | 65000.00 |
+# | 3     | income-component       | 12000.00 |
+
+# ============================================================================
+# QUERY 4: Generate DOT Format for Graphviz Visualization
+# ============================================================================
+
+# This query outputs the calculation tree in DOT format for visualization
+match
+    $taxpayer isa taxpayer, has ssn "123-45-6789";
+    $filing isa filing, has year 2024;
+    
+    # Get all nodes
+    calculation-context($node, $taxpayer, $filing);
+    $node owns calculation-id $node-id,
+          owns calculation-type $type,
+          owns output-value $value;
+    
+    # Format node label
+    let $label = $type + "\\n$" + $value;
+    
+    # Get edges (if they exist)
+    {
+        calculation-lineage($node, $child);
+        $child owns calculation-id $child-id;
+        let $edge = "    \"" + $node-id + "\" -> \"" + $child-id + "\";";
+    } or {
+        let $edge = "";
+    };
+    
+select $node-id, $label, $edge;
+
+# Output can be wrapped in:
+# digraph TaxCalculation {
+#     rankdir=TB;
+#     node [shape=box, style=rounded];
+#     [query results here]
+# }
+# Then visualized with: dot -Tpng output.dot -o calculation_tree.png
+
+# ============================================================================
+# QUERY 5: Audit Summary Report with Statistics
+# ============================================================================
+
+# Generate a summary report showing calculation statistics
+match
+    $taxpayer isa taxpayer, has name $taxpayer-name, has ssn $ssn;
+    $filing isa filing, has year $year;
+    
+    # Get all calculation steps
+    calculation-context($step, $taxpayer, $filing);
+    $step owns calculation-type $type,
+          owns output-value $value;
+    
+    # Find the final tax amount
+    calculation-context($tax-step, $taxpayer, $filing);
+    $tax-step owns calculation-type "federal-income-tax",
+              owns output-value $final-tax;
+    
+reduce
+    $total-steps = count($step),
+    $sum-values = sum($value),
+    $max-value = max($value),
+    $min-value = min($value),
+    $final = first($final-tax)
+    groupby $taxpayer-name, $ssn, $year;
+
+# Expected output:
+# | taxpayer_name | ssn         | year | total_steps | sum_values | max_value | min_value | final    |
+# | John Doe     | 123-45-6789 | 2024 | 6          | 246893.00  | 77000.00  | 12000.00  | 13893.00 |
+
+# ============================================================================
+# QUERY 6: Validation Check - Verify Calculation Consistency
+# ============================================================================
+
+# This query checks if the recorded calculations are internally consistent
+match
+    $taxpayer isa taxpayer, has ssn "123-45-6789";
+    $filing isa filing, has year 2024;
+    
+    # Get the AGI step and its recorded value
+    calculation-context($agi-step, $taxpayer, $filing);
+    $agi-step owns calculation-type "adjusted-gross-income",
+              owns output-value $recorded-agi;
+    
+    # Get all income components that feed into AGI
+    calculation-lineage($agi-step, $income-step);
+    $income-step owns calculation-type "income-component",
+                 owns output-value $income-value;
+    
+    # Sum the components
+reduce $calculated-agi = sum($income-value);
+
+# Then compare $recorded-agi with $calculated-agi to verify consistency
+
+# ============================================================================
+# QUERY 7: Impact Analysis - What Changes if Income Changes?
+# ============================================================================
+
+# Find all calculations that would be affected if a specific value changes
+match
+    $taxpayer isa taxpayer, has ssn "123-45-6789";
+    $filing isa filing, has year 2024;
+    
+    # Start from a specific income component
+    calculation-context($income-step, $taxpayer, $filing);
+    $income-step owns calculation-type "income-component",
+                 owns output-value 65000.00;  # The W-2 income
+    
+    # Find all calculations that depend on this (forward traversal)
+    {
+        # Direct dependents
+        calculation-lineage($dependent, $income-step);
+        let $impact-level = 1;
+    } or {
+        # Indirect dependents (2 levels)
+        calculation-lineage($level1, $income-step);
+        calculation-lineage($dependent, $level1);
+        let $impact-level = 2;
+    } or {
+        # Indirect dependents (3 levels)
+        calculation-lineage($level1, $income-step);
+        calculation-lineage($level2, $level1);
+        calculation-lineage($dependent, $level2);
+        let $impact-level = 3;
+    };
+    
+    $dependent owns calculation-type $type,
+               owns output-value $value;
+    
+select $impact-level, $type, $value
+    sort $impact-level asc;
+
+# Expected output (showing cascade of impacts):
+# | impact_level | type                   | value    |
+# | 1           | adjusted-gross-income  | 77000.00 |
+# | 2           | taxable-income        | 63150.00 |
+# | 3           | federal-income-tax    | 13893.00 |
+
+close

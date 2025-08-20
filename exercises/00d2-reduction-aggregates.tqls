@@ -1,0 +1,66 @@
+transaction read tax-system
+# Exercise 00d2: Built-in Reduction Functions (Aggregates)
+# Difficulty: Foundation-Intermediate
+# 
+# Task: Use TypeQL's built-in reduction operators for statistical analysis.
+#       Master aggregation patterns common in tax reporting.
+# 
+# Learning Goals:
+# - Using reduce with count, sum, mean, max, min, median, std
+# - Grouping results with groupby
+# - Combining multiple aggregations
+# - Understanding when reductions return single values vs streams
+#
+# Context:
+# Tax reporting requires various aggregations:
+# - Total income across all sources
+# - Average deduction amounts by category
+# - Maximum contribution limits
+# - Count of dependents or forms filed
+#
+# Expected Result:
+# Statistical insights from tax data using reductions
+#
+# Example 1: Count taxpayers and calculate income statistics
+match
+    $taxpayer isa taxpayer, has income $income;
+reduce 
+    $count = count($taxpayer),
+    $total = sum($income),
+    $average = mean($income),
+    $max-income = max($income),
+    $min-income = min($income);
+
+# Example 2: Group statistics by filing status
+match
+    $taxpayer isa taxpayer, 
+        has filing-status $status,
+        has income $income;
+reduce
+    $count = count($taxpayer),
+    $avg-income = mean($income)
+    groupby $status;
+
+# Example 3: Complex aggregation with filtering
+match
+    $taxpayer isa taxpayer, has income $income;
+    ?income > 25000;
+    # Get deductions for qualifying taxpayers
+    filing($taxpayer, $form);
+    deduction($form, $category);
+    $category has amount $deduction-amount;
+reduce
+    $total-deductions = sum($deduction-amount),
+    $avg-deduction = mean($deduction-amount),
+    $deduction-count = count($category);
+
+# TODO(human): Write a query that:
+# 1. Groups taxpayers by their state
+# 2. For each state, calculates:
+#    - Number of taxpayers
+#    - Total income reported
+#    - Average income
+#    - Standard deviation of income
+# 3. Orders results by average income (hint: you'll need to capture and sort in a second step)
+
+close

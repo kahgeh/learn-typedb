@@ -1,0 +1,230 @@
+transaction schema tax-system
+# Exercise 00d6: Auditable Calculation Lineage - Complete Walkthrough
+# Difficulty: Advanced
+# 
+# This walkthrough demonstrates a complete solution for creating auditable
+# tax calculations with full lineage tracking and visualization capabilities.
+# 
+# Learning Goals:
+# - Understanding audit trail architecture
+# - Implementing calculation lineage tracking
+# - Building queryable dependency graphs
+# - Creating visualizable audit reports
+#
+# Context:
+# Tax calculations must be fully auditable. This solution shows how to:
+# 1. Record every calculation step as data
+# 2. Link steps into a dependency tree
+# 3. Query the tree for audit reports
+# 4. Export data for visualization
+#
+# ============================================================================
+# PART 1: Define the Audit Trail Schema
+# ============================================================================
+
+define
+
+# Core attributes for tracking calculations
+attribute calculation-id, value string;
+attribute calculation-type, value string;
+attribute calculation-timestamp, value datetime;
+attribute calculation-formula, value string;
+attribute input-value, value double;
+attribute output-value, value double;
+attribute calculation-note, value string;
+attribute step-order, value integer;
+
+# The calculation-step entity represents one computation
+entity calculation-step,
+    owns calculation-id @key,
+    owns calculation-type,
+    owns calculation-timestamp,
+    owns calculation-formula,
+    owns output-value,
+    owns calculation-note,
+    plays calculation-lineage:parent-step,
+    plays calculation-lineage:child-step,
+    plays calculation-context:step,
+    plays calculation-input:step;
+
+# Relation: Links parent calculations to child calculations
+# This creates the dependency tree structure
+relation calculation-lineage,
+    relates parent-step,
+    relates child-step,
+    owns step-order;
+
+# Relation: Associates calculations with their business context
+relation calculation-context,
+    relates step,
+    relates taxpayer,
+    relates filing,
+    relates form;
+
+# Relation: Records the input values used in a calculation
+relation calculation-input,
+    relates step,
+    relates input-attribute,
+    owns input-value;
+
+# Enable existing entities to participate in audit trails
+taxpayer plays calculation-context:taxpayer;
+filing plays calculation-context:filing;
+form plays calculation-context:form;
+attribute plays calculation-input:input-attribute;
+
+# ============================================================================
+# PART 2: Implement Auditable Calculation Functions
+# ============================================================================
+
+# Function that calculates AGI and records every step
+fun calculate_agi_with_audit($taxpayer: taxpayer, $filing: filing) -> double, calculation-step:
+    match
+        # Get all income sources
+        $taxpayer has income $income;
+        ?income-value = $income;
+        
+        # Generate unique IDs for this calculation
+        $taxpayer has ssn $ssn;
+        $filing has year $year;
+        let $income-id = "income-" + $ssn + "-" + $year + "-" + $income;
+        
+        # Create audit record for each income component
+        insert
+            $income-step isa calculation-step,
+                owns calculation-id $income-id,
+                owns calculation-type "income-component",
+                owns calculation-timestamp 2024-03-15T10:30:00,
+                owns output-value ?income-value,
+                owns calculation-note "W-2 or 1099 income";
+            calculation-context($income-step, $taxpayer, $filing);
+            calculation-input($income-step, $income) owns input-value ?income-value;
+        
+    # Calculate the total
+    reduce $total = sum($income);
+    
+    match
+        # Create the AGI calculation step that depends on all income steps
+        $taxpayer has ssn $ssn;
+        $filing has year $year;
+        let $agi-id = "agi-" + $ssn + "-" + $year;
+        
+        # Find all the income steps we just created
+        calculation-context($income-step, $taxpayer, $filing);
+        $income-step owns calculation-type "income-component";
+        
+        insert
+            $agi-step isa calculation-step,
+                owns calculation-id $agi-id,
+                owns calculation-type "adjusted-gross-income",
+                owns calculation-timestamp 2024-03-15T10:31:00,
+                owns calculation-formula "sum(W2 + 1099 + other_income)",
+                owns output-value $total,
+                owns calculation-note "Total AGI per Form 1040 Line 11";
+            calculation-context($agi-step, $taxpayer, $filing);
+            
+            # Create lineage: AGI depends on each income component
+            calculation-lineage($agi-step, $income-step) owns step-order 1;
+    
+    return first $total, $agi-step;
+
+# Function that calculates tax with complete audit trail
+fun calculate_tax_with_audit($taxpayer: taxpayer, $filing: filing, $status: filing-status) -> double, calculation-step:
+    match
+        # Step 1: Calculate AGI (returns both value and audit step)
+        let $agi, $agi-step = calculate_agi_with_audit($taxpayer, $filing);
+        
+        # Step 2: Get standard deduction based on filing status
+        $status has status-name $status-name;
+        { ?status-name == "single"; let $standard-ded = 13850.0; } or
+        { ?status-name == "married-filing-jointly"; let $standard-ded = 27700.0; } or  
+        { ?status-name == "head-of-household"; let $standard-ded = 20800.0; } or
+        { let $standard-ded = 13850.0; };
+        
+        # Create audit record for standard deduction
+        $taxpayer has ssn $ssn;
+        $filing has year $year;
+        let $ded-id = "std-ded-" + $ssn + "-" + $year;
+        
+        insert
+            $ded-step isa calculation-step,
+                owns calculation-id $ded-id,
+                owns calculation-type "standard-deduction",
+                owns calculation-timestamp 2024-03-15T10:32:00,
+                owns calculation-formula "lookup_standard_deduction(" + $status-name + ")",
+                owns output-value $standard-ded,
+                owns calculation-note "2024 standard deduction for " + $status-name;
+            calculation-context($ded-step, $taxpayer, $filing);
+        
+        # Step 3: Calculate taxable income
+        let $taxable = $agi - $standard-ded;
+        { ?taxable > 0; } or { let $taxable = 0.0; };
+        let $taxable-id = "taxable-" + $ssn + "-" + $year;
+        
+        insert
+            $taxable-step isa calculation-step,
+                owns calculation-id $taxable-id,
+                owns calculation-type "taxable-income",
+                owns calculation-timestamp 2024-03-15T10:33:00,
+                owns calculation-formula "AGI($" + $agi + ") - std_deduction($" + $standard-ded + ")",
+                owns output-value $taxable,
+                owns calculation-note "Form 1040 Line 15";
+            calculation-context($taxable-step, $taxpayer, $filing);
+            # This step depends on AGI and standard deduction
+            calculation-lineage($taxable-step, $agi-step) owns step-order 1;
+            calculation-lineage($taxable-step, $ded-step) owns step-order 2;
+        
+        # Step 4: Determine tax bracket and rate
+        { ?taxable <= 11000; let $rate = 0.10; let $bracket = "10%"; } or
+        { ?taxable <= 44725; let $rate = 0.12; let $bracket = "12%"; } or
+        { ?taxable <= 95375; let $rate = 0.22; let $bracket = "22%"; } or
+        { let $rate = 0.24; let $bracket = "24%"; };
+        
+        # Step 5: Calculate final tax
+        let $tax = $taxable * $rate;
+        let $tax-id = "tax-" + $ssn + "-" + $year;
+        
+        insert
+            $tax-step isa calculation-step,
+                owns calculation-id $tax-id,
+                owns calculation-type "federal-income-tax",
+                owns calculation-timestamp 2024-03-15T10:34:00,
+                owns calculation-formula "taxable_income($" + $taxable + ") * rate(" + $bracket + ")",
+                owns output-value $tax,
+                owns calculation-note "Federal income tax using " + $bracket + " bracket";
+            calculation-context($tax-step, $taxpayer, $filing);
+            # Tax calculation depends on taxable income
+            calculation-lineage($tax-step, $taxable-step) owns step-order 1;
+            
+    return first $tax, $tax-step;
+
+# Function to traverse and return the complete calculation tree
+fun get_calculation_tree($root: calculation-step) -> { calculation-step, calculation-step, integer }:
+    match
+        # Start from the root
+        $root isa calculation-step;
+        
+        # Find all descendants using recursive pattern
+        {
+            # Direct children (depth 1)
+            calculation-lineage($root, $child);
+            let $parent = $root;
+            let $depth = 1;
+        } or {
+            # Grandchildren (depth 2)
+            calculation-lineage($root, $child1);
+            calculation-lineage($child1, $child);
+            let $parent = $child1;
+            let $depth = 2;
+        } or {
+            # Great-grandchildren (depth 3)
+            calculation-lineage($root, $child1);
+            calculation-lineage($child1, $child2);
+            calculation-lineage($child2, $child);
+            let $parent = $child2;
+            let $depth = 3;
+        };
+        
+    return { $parent, $child, $depth };
+
+commit

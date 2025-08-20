@@ -1,0 +1,89 @@
+transaction read tax-system
+# Exercise 00d5: Querying with Functions
+# Difficulty: Intermediate-Advanced
+# 
+# Task: Use the functions defined in previous exercises within queries.
+#       Combine function calls with pattern matching and filtering.
+# 
+# Learning Goals:
+# - Calling custom functions in queries
+# - Using function results in filters and comparisons
+# - Combining multiple function calls
+# - Understanding function evaluation context
+#
+# Context:
+# With functions defined in the schema, queries become more expressive:
+# - Complex calculations are encapsulated and reusable
+# - Business logic is centralized in the database
+# - Queries focus on patterns rather than computation details
+#
+# Expected Result:
+# High-level queries using function abstractions
+#
+# Example 1: Find taxpayers who owe tax using functions
+match
+    $taxpayer isa taxpayer, has ssn $ssn;
+    $status isa filing-status, has status-name "single";
+    # Call our custom functions
+    let $taxable-income = calculate_taxable_income($taxpayer, $status);
+    let $tax-rate = calculate_tax_bracket_rate($taxable-income);
+    let $tax-owed = $taxable-income * $tax-rate;
+    ?tax-owed > 0;
+select $ssn, $taxable-income, $tax-rate, $tax-owed;
+
+# Example 2: Find households with high combined income
+match
+    $taxpayer isa taxpayer, has name $name;
+    # Get household income using our function
+    let $household-income, $household-size = calculate_household_income($taxpayer);
+    let $per-capita = $household-income / $household-size;
+    ?per-capita > 75000;
+select $name, $household-income, $household-size, $per-capita;
+
+# Example 3: Analyze deductions across taxpayers
+match
+    $taxpayer isa taxpayer, has ssn $ssn;
+    # Get deduction summary
+    let $total-deductions, $deduction-count, $main-category = get_deductions_summary($taxpayer);
+    ?total-deductions > 10000;
+    # Also calculate AGI for context
+    let $agi = calculate_agi($taxpayer);
+    let $deduction-percentage = ($total-deductions / $agi) * 100;
+select $ssn, $agi, $total-deductions, $deduction-percentage
+    sort $deduction-percentage desc;
+
+# Example 4: Find tax credits and phase-outs
+match
+    $taxpayer isa taxpayer, has name $name, has dependents $dep-count;
+    let $agi = calculate_agi($taxpayer);
+    let $child-credit = calculate_child_tax_credit($dep-count, $agi);
+    ?child-credit > 0;
+    # Calculate effective credit rate
+    let $credit-per-child = $child-credit / $dep-count;
+select $name, $agi, $dep-count, $child-credit, $credit-per-child;
+
+# Example 5: Complex query with multiple functions and relations
+match
+    $taxpayer isa taxpayer, has ssn $ssn;
+    # Get all related taxpayers
+    let $related, $relationship in get_related_taxpayers($taxpayer);
+    # Check if any dependents qualify
+    { 
+        ?relationship == "dependent";
+        let $qualifies = qualifies_as_dependent($taxpayer, $related);
+        ?qualifies == true;
+    } or {
+        ?relationship != "dependent";
+        let $qualifies = false;
+    };
+select $ssn, $related, $relationship, $qualifies;
+
+# TODO(human): Write a query that:
+# 1. Finds all taxpayers
+# 2. Calculates their taxable income using calculate_taxable_income()
+# 3. Groups them into tax brackets using calculate_tax_bracket_rate()
+# 4. Counts how many taxpayers fall into each bracket
+# 5. Calculates the average taxable income per bracket
+# Hint: Use reduce with groupby on the tax rate
+
+close

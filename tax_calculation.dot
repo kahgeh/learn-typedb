@@ -1,0 +1,17 @@
+digraph TaxCalculation {
+    rankdir=TB;
+    node [shape=box, style=rounded];
+    "tax-123-45-6789-2024" [label="federal-income-tax\n$14,663.00\ntaxable_income($66650) * rate(22%)"];
+    "taxable-123-45-6789-2024" [label="taxable-income\n$66,650.00\nAGI($80500) - std_deduction($13850)"];
+    "agi-123-45-6789-2024" [label="adjusted-gross-income\n$80,500.00\nsum(W2 + 1099 + other_income)"];
+    "income-step-1" [label="income-component\n$65,000.00"];
+    "income-step-2" [label="income-component\n$12,000.00"];
+    "income-step-3" [label="income-component\n$3,500.00"];
+    "std-ded-123-45-6789-2024" [label="standard-deduction\n$13,850.00\nlookup_standard_deduction(single)"];
+    "tax-123-45-6789-2024" -> "taxable-123-45-6789-2024";
+    "taxable-123-45-6789-2024" -> "agi-123-45-6789-2024";
+    "agi-123-45-6789-2024" -> "income-step-1";
+    "agi-123-45-6789-2024" -> "income-step-2";
+    "agi-123-45-6789-2024" -> "income-step-3";
+    "taxable-123-45-6789-2024" -> "std-ded-123-45-6789-2024";
+}

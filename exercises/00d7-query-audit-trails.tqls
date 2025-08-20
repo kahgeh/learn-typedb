@@ -1,0 +1,163 @@
+transaction read tax-system
+# Exercise 00d7: Querying Audit Trails for Visualization
+# Difficulty: Advanced
+# 
+# Task: Query the calculation lineage to produce audit trails and dependency trees
+#       suitable for visualization in tools like Graphviz or D3.js.
+# 
+# Learning Goals:
+# - Traversing calculation graphs
+# - Formatting data for visualization tools
+# - Building hierarchical queries
+# - Understanding calculation dependencies
+#
+# Context:
+# Auditors and taxpayers need to visualize calculation flows:
+# - Show how final tax amount was computed
+# - Identify which inputs affected the result
+# - Display calculation formulas at each step
+# - Generate audit reports with full traceability
+#
+# Expected Result:
+# Queries that output calculation trees for visualization
+#
+# Example 1: Get the complete calculation tree for a taxpayer's tax calculation
+match
+    $taxpayer isa taxpayer, has ssn "123-45-6789";
+    $filing isa filing, has year 2024;
+    calculation-context($root-step, $taxpayer, $filing);
+    $root-step isa calculation-step, 
+        owns calculation-type "income-tax",
+        owns output-value $tax-amount;
+    
+    # Traverse the lineage tree
+    calculation-lineage($root-step, $child-step);
+    $child-step owns calculation-type $child-type,
+                owns output-value $child-value,
+                owns calculation-formula $formula;
+select 
+    $root-step, 
+    $tax-amount,
+    $child-step, 
+    $child-type, 
+    $child-value,
+    $formula;
+
+# Example 2: Build a hierarchical audit report
+match
+    $taxpayer isa taxpayer, has name $taxpayer-name;
+    $filing isa filing, has year $year;
+    
+    # Find all calculation steps for this filing
+    calculation-context($step, $taxpayer, $filing);
+    $step owns calculation-type $type,
+          owns output-value $value,
+          owns calculation-timestamp $timestamp;
+    
+    # Get parent relationships if they exist
+    {
+        calculation-lineage($parent, $step);
+        $parent owns calculation-type $parent-type;
+    } or {
+        let $parent-type = "root";
+    };
+select 
+    $taxpayer-name,
+    $year,
+    $step,
+    $type,
+    $value,
+    $parent-type,
+    $timestamp
+    sort $timestamp asc;
+
+# Example 3: Trace back from a final value to all inputs (reverse tree)
+match
+    # Start from a specific calculation result
+    $final-step isa calculation-step,
+        owns calculation-id "tax-123-45-6789-2024",
+        owns output-value $final-value;
+    
+    # Recursively find all dependencies
+    {
+        $final-step = $step;
+    } or {
+        calculation-lineage($step, $child);
+        # Continue traversing up the tree
+        calculation-lineage($parent, $step);
+    };
+    
+    $step owns calculation-type $type,
+          owns output-value $value,
+          owns calculation-note $note;
+          
+    # Get the actual input values used
+    {
+        calculation-input($step, $input-attr) owns input-value $input-val;
+    } or {
+        let $input-val = 0.0;
+    };
+select 
+    $step,
+    $type,
+    $value,
+    $note,
+    $input-val;
+
+# Example 4: Generate DOT format for Graphviz visualization
+match
+    $taxpayer isa taxpayer, has ssn $ssn;
+    $filing isa filing, has year $year;
+    
+    # Get all calculation steps
+    calculation-context($step, $taxpayer, $filing);
+    $step owns calculation-id $step-id,
+          owns calculation-type $type,
+          owns output-value $value;
+    
+    # Get parent-child relationships
+    {
+        calculation-lineage($step, $child);
+        $child owns calculation-id $child-id;
+        let $edge = $step-id + " -> " + $child-id;
+    } or {
+        let $edge = "";
+    };
+    
+    # Format for visualization
+    let $node-label = $type + "\n$" + $value;
+select 
+    $step-id,
+    $node-label,
+    $edge;
+
+# Example 5: Audit trail summary with calculation impact analysis
+match
+    $taxpayer isa taxpayer, has name $name;
+    $filing isa filing;
+    
+    # Get the final tax calculation
+    calculation-context($tax-step, $taxpayer, $filing);
+    $tax-step owns calculation-type "income-tax",
+              owns output-value $tax;
+    
+    # Count dependencies at each level
+    calculation-lineage($tax-step, $level1);
+    calculation-lineage($level1, $level2);
+    
+    # Get key metrics
+    calculation-context($any-step, $taxpayer, $filing);
+reduce 
+    $total-steps = count($any-step),
+    $max-value = max($tax),
+    $avg-value = mean($tax)
+    groupby $name;
+
+# TODO(human): Write a query that:
+# 1. Takes a calculation-step as input
+# 2. Finds all "leaf" calculations (those with no children)
+# 3. Shows the complete path from each leaf to the root
+# 4. Outputs in a format suitable for creating a tree diagram
+# Hint: Use nested patterns to traverse from leaves upward
+
+close
