@@ -2,6 +2,8 @@
 
 ## ⚠️ CRITICAL: Always Check Documentation First
 
+Use v3.x syntax.
+
 **BEFORE writing any TypeDB query, schema definition, or data insertion:**
 1. Check the official TypeDB 3.x documentation in `docs/typedb-docs-3.x/`
 2. Reference the correct syntax from the documentation
@@ -23,26 +25,7 @@ To update the documentation:
 git submodule update --remote docs/typedb-docs-3.x
 ```
 
-## TypeDB 3.0 (December 2024 Release)
-
-### Key Learnings
-
-**Version & Syntax:**
-- TypeDB 3.0 was released in December 2024, written in Rust
-- Schema syntax: `entity typename` (NOT `typename sub entity` from v2.x)
-- Value types: `integer`, `double`, `string`, `boolean`, `datetime` (NOT `long`)
-- Query syntax in console: use `select` (NOT `fetch` or `get`)
-- Entity names cannot have hyphens in schema definitions
-
-**Console Scripts (.tqls files):**
-```typeql
-transaction read database-name
-    match [pattern];
-    select [variables];
-    
-    close
-```
-
+### Tools to verify your work
 **Running Queries:**
 ```bash
 typedb console --address=localhost:1729 --username=admin --tls-disabled --password password --script=queries/file.tqls
@@ -79,15 +62,17 @@ scripts/       # Python automation scripts
 
 ### Setup Commands
 
+⚠️ CRITICAL: Always use uv to run any python scripts 
+
 ```bash
 # Start TypeDB
 typedb server
 
 # Load database
-python scripts/setup_database_simple.py
+uv run python scripts/setup_database_simple.py
 
 # Verify
-python scripts/verify_database.py
+uv run python scripts/verify_database.py
 
 # Run queries
 typedb console --address=localhost:1729 --username=admin --tls-disabled --password password --script=queries/01-count-entities.tqls
