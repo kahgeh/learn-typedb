@@ -1,0 +1,50 @@
+# Query to get all form fields with their calculation functions
+match
+    $field isa form_field,
+        has field_id $id,
+        has field_name $name,
+        has form_name $form,
+        has calculation_function $func;
+select $id, $name, $form, $func;
+
+# Query to get field dependencies (which fields depend on which)
+match
+    (dependent_field: $dep, source_field: $src) isa field_dependency;
+    $dep has field_id $dep_id, has field_name $dep_name;
+    $src has field_id $src_id, has field_name $src_name;
+    ?dep_func = $dep has calculation_function;
+    ?src_func = $src has calculation_function;
+select $dep_id, $dep_name, $dep_func, $src_id, $src_name, $src_func;
+
+# Query to find root fields (fields that nothing depends on)
+match
+    $field isa form_field,
+        has field_id $id,
+        has field_name $name,
+        has calculation_function $func;
+    not {
+        (dependent_field: $other, source_field: $field) isa field_dependency;
+    };
+select $id, $name, $func;
+
+# Query to find leaf fields (fields that depend on nothing)  
+match
+    $field isa form_field,
+        has field_id $id,
+        has field_name $name,
+        has calculation_function $func;
+    not {
+        (dependent_field: $field, source_field: $other) isa field_dependency;
+    };
+select $id, $name, $func;
+
+# Query to get the complete dependency chain for a specific field
+match
+    $target isa form_field, has field_id "1040-line-16";
+    (dependent_field: $target, source_field: $dep1) isa field_dependency;
+    $dep1 has field_id $dep1_id, has field_name $dep1_name, has calculation_function $dep1_func;
+    ?dep2_rel = (dependent_field: $dep1, source_field: $dep2) isa field_dependency;
+    ?dep2_id = $dep2 has field_id;
+    ?dep2_name = $dep2 has field_name;
+    ?dep2_func = $dep2 has calculation_function;
+select $dep1_id, $dep1_name, $dep1_func, $dep2_id, $dep2_name, $dep2_func;

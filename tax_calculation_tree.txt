@@ -1,0 +1,121 @@
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                     TAX CALCULATION DEPENDENCY TREE                       ║
+║                  (Field Name → Calculation Function)                      ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Form 1040 Field Dependency Hierarchy                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Federal Income Tax [Line 16]
+└── calculate_federal_tax()
+    │
+    ├── Taxable Income [Line 15]
+    │   └── calculate_taxable_income()
+    │       │
+    │       ├── Adjusted Gross Income [Line 11]
+    │       │   └── calculate_agi()
+    │       │       │
+    │       │       └── Total Income [Line 9]
+    │       │           └── calculate_total_income()
+    │       │               │
+    │       │               ├── W-2 Wages
+    │       │               │   └── (income_source.amount)
+    │       │               │
+    │       │               └── 1099 Income
+    │       │                   └── (income_source.amount)
+    │       │
+    │       └── Standard Deduction [Line 12]
+    │           └── get_standard_deduction()
+    │               │
+    │               ├── Tax Year (2024)
+    │               │   └── (tax_year.year)
+    │               │
+    │               └── Filing Status (single/married)
+    │                   └── (filing_status.filing_status_type)
+    │
+    └── Tax Rate Lookup
+        └── get_tax_rate()
+            │
+            ├── Taxable Income (calculated above)
+            ├── Tax Year (2024)
+            └── Filing Status (single/married)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Function Composition Flow                                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+calculate_complete_return()
+    │
+    ├─► calculate_total_income($taxpayer)
+    │     └─► SUM(income_source.amount) for all income types
+    │
+    ├─► calculate_agi($taxpayer)
+    │     └─► CALLS: calculate_total_income($taxpayer)
+    │
+    ├─► get_standard_deduction($year, $status)
+    │     └─► LOOKUP: standard_deduction_rule → deduction_amount
+    │
+    ├─► calculate_taxable_income($taxpayer, $year, $status)
+    │     ├─► CALLS: calculate_agi($taxpayer)
+    │     └─► CALLS: get_standard_deduction($year, $status)
+    │     └─► RETURNS: AGI - Standard Deduction
+    │
+    └─► calculate_federal_tax($taxpayer, $year, $status)
+          ├─► CALLS: calculate_taxable_income($taxpayer, $year, $status)
+          └─► CALLS: get_tax_rate($taxable, $year, $status)
+          └─► RETURNS: Taxable Income × Tax Rate
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Data Dependencies (Entities & Relations)                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+taxpayer
+    │
+    ├── income_source (relation)
+    │   ├── W-2 Wages: $75,000
+    │   └── 1099 Income: $15,000
+    │
+    └── tax_filing (relation)
+        ├── tax_year: 2024
+        └── filing_status: single
+
+standard_deduction_rule (relation)
+    ├── single → $14,600
+    └── married → $29,200
+
+tax_bracket_rule (relation)
+    ├── $0 - $11,600 → 10%
+    ├── $11,600 - $47,150 → 12%
+    ├── $47,150 - $100,525 → 22%
+    └── $100,525+ → 24%
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Calculation Example (John Doe)                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Federal Income Tax ← calculate_federal_tax()
+    │
+    ├── Taxable Income: $75,400 ← calculate_taxable_income()
+    │   │
+    │   ├── AGI: $90,000 ← calculate_agi()
+    │   │   └── Total Income: $90,000 ← calculate_total_income()
+    │   │       ├── W-2: $75,000
+    │   │       └── 1099: $15,000
+    │   │
+    │   └── Standard Deduction: $14,600 ← get_standard_deduction()
+    │
+    └── Tax Rate: 22% ← get_tax_rate()
+        └── (for income $75,400 in bracket $47,150-$100,525)
+    
+    = $75,400 × 0.22 = $16,588
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║ KEY INSIGHTS:                                                              ║
+║ • Each field has exactly ONE calculation function                          ║
+║ • Functions compose by calling other functions                             ║
+║ • No redundant formula strings - functions ARE the logic                   ║
+║ • Dependencies are explicit and traceable                                  ║
+║ • TypeDB enforces type safety throughout the calculation chain             ║
+╚═══════════════════════════════════════════════════════════════════════════╝
