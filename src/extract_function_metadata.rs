@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use typeql::parse_definition_function;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -7,7 +8,9 @@ pub struct FunctionMetadata {
     pub name: String,
     pub parameters: Vec<Parameter>,
     pub output: String,
+    pub return_expression: Option<String>,
     pub code_block: String,
+    pub referenced_functions: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -36,11 +39,19 @@ pub fn extract_function_metadata(function_text: &str) -> Result<FunctionMetadata
     // Extract code block (the match block and return statement)
     let code_block = extract_code_block(function_text);
     
+    // Extract referenced functions from the AST debug string
+    let referenced_functions = extract_referenced_functions(&debug_str);
+    
+    // Extract return expression for native types
+    let return_expression = extract_return_expression(&debug_str);
+    
     Ok(FunctionMetadata {
         name,
         parameters,
         output,
+        return_expression,
         code_block,
+        referenced_functions,
     })
 }
 
@@ -270,4 +281,113 @@ fn extract_code_block(function_text: &str) -> String {
     } else {
         function_text.to_string()
     }
+}
+
+fn extract_return_expression(debug_str: &str) -> Option<String> {
+    // Look for return_stmt in the AST
+    if let Some(return_pos) = debug_str.find("return_stmt: ") {
+        let return_section = &debug_str[return_pos..];
+        
+        // Check for Single return with selector (first, last, etc.)
+        if return_section.starts_with("return_stmt: Single(") {
+            // Extract selector (First, Last, etc.)
+            let selector = if return_section.contains("selector: First") {
+                "first "
+            } else if return_section.contains("selector: Last") {
+                "last "
+            } else if return_section.contains("selector: Any") {
+                ""
+            } else {
+                ""
+            };
+            
+            // Find the variable in vars array
+            if let Some(vars_pos) = return_section.find("vars: [") {
+                let vars_section = &return_section[vars_pos..];
+                if let Some(ident_pos) = vars_section.find("ident: \"") {
+                    let ident_start = ident_pos + 8;
+                    if let Some(ident_end) = vars_section[ident_start..].find("\"") {
+                        let var_name = &vars_section[ident_start..ident_start + ident_end];
+                        return Some(format!("{}${}", selector, var_name));
+                    }
+                }
+            }
+        }
+        // Check for Reduce return (aggregate functions)
+        else if return_section.starts_with("return_stmt: Reduce(") {
+            // Look for reduce_operator
+            if let Some(op_pos) = return_section.find("reduce_operator: ") {
+                let op_start = op_pos + 17;
+                let op_section = &return_section[op_start..];
+                if let Some(op_end) = op_section.find(",").or(op_section.find("\n")) {
+                    let operator = op_section[..op_end].trim().to_lowercase();
+                    
+                    // Find the variable being aggregated
+                    if let Some(var_pos) = return_section.find("variable: Named") {
+                        let var_section = &return_section[var_pos..];
+                        if let Some(ident_pos) = var_section.find("ident: \"") {
+                            let ident_start = ident_pos + 8;
+                            if let Some(ident_end) = var_section[ident_start..].find("\"") {
+                                let var_name = &var_section[ident_start..ident_start + ident_end];
+                                return Some(format!("{}(${})", operator, var_name));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Check for Stream return (set of values)
+        else if return_section.starts_with("return_stmt: Stream(") {
+            // Find the variables in the stream
+            if let Some(vars_pos) = return_section.find("vars: [") {
+                let vars_section = &return_section[vars_pos..];
+                if let Some(ident_pos) = vars_section.find("ident: \"") {
+                    let ident_start = ident_pos + 8;
+                    if let Some(ident_end) = vars_section[ident_start..].find("\"") {
+                        let var_name = &vars_section[ident_start..ident_start + ident_end];
+                        return Some(format!("{{ ${} }}", var_name));
+                    }
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+fn extract_referenced_functions(debug_str: &str) -> Vec<String> {
+    let mut referenced_functions = Vec::new();
+    let mut seen = HashSet::new();
+    
+    // Look for function calls in the AST debug output
+    // Function calls appear as: FunctionCall { ... name: Identifier( ... ident: "function_name"
+    
+    let mut remaining = debug_str;
+    
+    while let Some(call_start) = remaining.find("FunctionCall {") {
+        let call_section = &remaining[call_start..];
+        
+        // Look for the name: Identifier pattern within this FunctionCall
+        if let Some(name_start) = call_section.find("name: Identifier(") {
+            let name_section = &call_section[name_start..];
+            
+            // Find the ident field within the Identifier
+            if let Some(ident_start) = name_section.find("ident: \"") {
+                let ident_start = ident_start + 8;
+                if let Some(quote_end) = name_section[ident_start..].find("\"") {
+                    let func_name = name_section[ident_start..ident_start + quote_end].to_string();
+                    
+                    // Only add if we haven't seen this function before
+                    if seen.insert(func_name.clone()) {
+                        referenced_functions.push(func_name);
+                    }
+                }
+            }
+        }
+        
+        // Move past this FunctionCall
+        remaining = &remaining[call_start + 14..];
+    }
+    
+    referenced_functions
 }

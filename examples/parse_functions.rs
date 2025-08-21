@@ -76,6 +76,19 @@ fn print_function_metadata(metadata: &FunctionMetadata) {
     println!();
     
     println!("Output: {}", metadata.output);
+    if let Some(ref return_expr) = metadata.return_expression {
+        println!("Return Expression: {}", return_expr);
+    }
+    println!();
+    
+    println!("Referenced Functions:");
+    if metadata.referenced_functions.is_empty() {
+        println!("  (none)");
+    } else {
+        for func_ref in &metadata.referenced_functions {
+            println!("  - {}", func_ref);
+        }
+    }
     println!();
     
     println!("Code Block:");
