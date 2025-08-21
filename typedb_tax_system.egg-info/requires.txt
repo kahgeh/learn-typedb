@@ -1,3 +1,4 @@
+requests>=2.32.5
 typedb-driver>=3.4.4
 
 [dev]

@@ -4,6 +4,7 @@ Version: 0.1.0
 Summary: Learning TypeDB through tax system modeling
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.32.5
 Requires-Dist: typedb-driver>=3.4.4
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.4; extra == "dev"
@@ -16,7 +17,7 @@ A hands-on exploration of TypeDB for building intelligent tax form generation an
 
 ## Overview
 
-This repository explores how TypeDB's knowledge graph capabilities can model:
+This repository explores how TypeDB's capabilities can model:
 - Tax form structures and relationships
 - Validation rules and constraints
 - Calculation dependencies
@@ -34,24 +35,165 @@ This repository explores how TypeDB's knowledge graph capabilities can model:
 ## Project Structure
 
 ```
-├── schemas/           # TypeDB schema definitions
-├── data/             # Sample tax data and rules
-├── queries/          # TypeQL query examples
-├── scripts/          # Python scripts for TypeDB interaction
-└── docs/             # Learning notes and diagrams
+├── schemas/
+│   └── tax-schema-v3.tql        # TypeDB 3.0 schema for tax system
+├── data/
+│   └── sample-tax-data-v3.tql   # Sample tax data
+├── queries/
+│   ├── 01-count-entities.tqls   # Query examples in TypeQL
+│   ├── 02-list-form-types.tqls  # ... and more
+│   └── README.md                 # Query documentation
+├── scripts/
+│   ├── setup_database_simple.py # Database setup script
+│   ├── verify_database.py       # Verification script
+│   └── query_examples.py       # Python query examples (with TODO)
+└── docs/
+    ├── typedb-for-tax-systems.md # Detailed learning guide
+    └── typedb-docs-3.x/          # Official TypeDB 3.x documentation (submodule)
 ```
+
+## Prerequisites
+
+- TypeDB Community Edition 3.0+ installed and running
+- Python 3.9+
+- uv (Python package manager)
 
 ## Getting Started
 
-1. Ensure TypeDB Community Edition is installed and running
-2. Create the tax database: `typedb console --command="database create tax-system"`
-3. Load the schema: `typedb console --database=tax-system --file=schemas/tax-schema.tql --mode=schema`
+### 1. Start TypeDB Server
+```bash
+typedb server
+```
 
-## Learning Path
+### 2. Clone Repository with Documentation
+```bash
+# Clone with submodules
+git clone --recurse-submodules <repository-url>
 
-1. **Schema Design**: Model forms, fields, and rules
-2. **Data Loading**: Insert tax form definitions and rules
-3. **Validation Rules**: Implement constraint checking
-4. **Calculations**: Model field dependencies and computations
-5. **Queries**: Extract form structures for UI generation
-6. **Inference**: Use rules to derive values and validate submissions
+# Or if already cloned, get the documentation
+git submodule init
+git submodule update
+```
+
+### 3. Set Up Python Environment
+```bash
+# Install uv if not already installed
+pip install uv
+
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -e .
+```
+
+### 4. Load the Tax System Database
+```bash
+python scripts/setup_database_simple.py
+```
+
+This will:
+- Create a `tax-system` database
+- Load the tax schema with entities for forms, fields, taxpayers
+- Insert sample data including Form 1040 and field definitions
+- Set up relationships and validation rules
+
+### 5. Explore the Database
+
+Run queries directly from files:
+```bash
+# Run a specific query script
+typedb console --address=localhost:1729 --username=admin --tls-disabled --password password --script=queries/01-count-entities.tqls
+
+# Or use interactive console
+typedb console --address=localhost:1729 --username=admin --password=password --tls-disabled
+> transaction tax-system read
+> match $x isa tax-year; select $x;
+> close
+```
+
+Verify database setup:
+```bash
+python scripts/verify_database.py      # Verify database is loaded
+
+## Schema Overview
+
+The tax system schema models:
+
+### Entities
+- **tax-year**: Tax year periods with jurisdiction
+- **form-type**: Tax form types (1040, Schedule A, etc.)
+- **form-definition**: Versioned form definitions
+- **field-definition**: Form fields with validation rules
+- **taxpayer**: Individual taxpayers
+- **filing**: Tax return filings
+
+### Relations
+- **form-applicable**: Links forms to tax years
+- **field-containment**: Forms contain fields with ordering
+- **field-dependency**: Dependencies between fields
+- **calculation**: Input/output field relationships for calculations
+- **validation-rule**: Validation rules for fields
+- **taxpayer-classification**: Taxpayer status classifications
+
+### Key Features Demonstrated
+- Semantic modeling of tax domain concepts
+- Relationships as first-class citizens with attributes
+- Validation rules stored in the database
+- Calculation dependencies tracked explicitly
+- Support for multiple tax years and form versions
+
+## Learning Exercises
+
+### 1. Field Dependencies Query (TODO)
+In `scripts/query_examples.py`, there's a TODO to implement a query that finds all field dependencies. This will help you understand how TypeDB traverses relationships bidirectionally.
+
+### 2. Explore Calculations
+Query the calculation relationships to understand how fields like Gross Income are computed from input fields like W2 Wages.
+
+### 3. Test Validation Rules
+Try inserting invalid data to see how validation rules work:
+- Negative wages
+- Invalid SSN format
+- Missing required fields
+
+### 4. Add New Tax Forms
+Extend the schema with additional forms like:
+- Form W-2 (Wage and Tax Statement)
+- Schedule C (Business Income)
+- Form 1099-INT (Interest Income)
+
+## TypeDB 3.0 Notes
+
+This project uses TypeDB 3.0 (released December 2024) with updated syntax:
+- Entities defined as `entity typename` (not `typename sub entity`)
+- Value types: `integer`, `double`, `string`, `boolean`, `datetime`
+- Queries use `select` in console scripts (not `get` or `fetch`)
+- Python driver uses `TypeDB.driver()` with credentials
+- Script files require `transaction` and `close` commands
+
+## Next Steps
+
+1. Complete the field dependency query implementation
+2. Add more complex validation rules
+3. Implement tax calculation rules using TypeDB inference
+4. Build a form UI generator based on the schema
+5. Test with real tax form specifications
+
+## Resources
+
+- [TypeDB Documentation](https://typedb.com/docs)
+- [TypeQL Language Guide](https://typedb.com/docs/typeql/2.x/overview)
+- [TypeDB 3.0 Release Notes](https://typedb.com/blog/typedb-3-roadmap)
+- Learning Guide: `docs/typedb-for-tax-systems.md`
+
+## Troubleshooting
+
+### Connection Issues
+- Ensure TypeDB server is running: `typedb server`
+- Default connection: `localhost:1729`
+- Default credentials: username=`admin`, password=`password`
+
+### Schema Loading Errors
+- TypeDB 3.0 uses different syntax than 2.x
+- Check datetime format: `YYYY-MM-DDTHH:MM:SS`
+- Entity names cannot contain hyphens in type definitions (use in instance names only)

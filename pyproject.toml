@@ -5,6 +5,7 @@ description = "Learning TypeDB through tax system modeling"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "requests>=2.32.5",
     "typedb-driver>=3.4.4",
 ]
 

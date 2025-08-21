@@ -1,7 +1,15 @@
 README.md
 pyproject.toml
+scripts/__init__.py
+scripts/extract_function_metadata.py
 scripts/query_examples.py
-scripts/setup_database.py
+scripts/setup_database_simple.py
+scripts/verify_database.py
+scripts/calculation-tree/config.py
+scripts/calculation-tree/query_dependency_tree.py
+scripts/calculation-tree/query_dependency_tree_dual.py
+scripts/calculation-tree/semantic_tax_system.py
+scripts/calculation-tree/setup_audit_trail.py
 typedb_tax_system.egg-info/PKG-INFO
 typedb_tax_system.egg-info/SOURCES.txt
 typedb_tax_system.egg-info/dependency_links.txt
