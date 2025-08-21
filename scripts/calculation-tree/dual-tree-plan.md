@@ -113,30 +113,27 @@ Federal Income Tax [line-16] = $16,588
                 ├── $11,600 - $47,150 → 12% = $4,266
                 ├── $47,150 - $100,525 → 22% = $6,237 ← APPLIED
                 │   └── ($75,400 - $47,150) × 22%
-                └── $100,525+ → 24% [NOT APPLICABLE]
+                └── $100,525+ → 24% 
 ```
 
 ## Implementation Plan
 
-### Phase 1: Schema Extensions
+### Phase 1: Schema Extensions (if needed)
 ```tql
 define
 
-# Add view type attribute
-attribute tree_view_type, value string; # "generic" or "taxpayer-specific"
-
-# Add conditional logic metadata
+# Add conditional logic metadata (optional - only if we want to store branch conditions)
 attribute condition_type, value string; # "filing_status", "income_threshold", etc.
 attribute condition_description, value string;
 
-# Extend function_metadata
+# Extend function_metadata (if tracking conditional logic)
 entity function_metadata,
     owns calculation_function @key,
     owns function_type,
     owns has_conditional_logic,
     plays conditional_branch:function;
 
-# Conditional branches
+# Conditional branches (optional)
 entity conditional_branch_spec,
     owns condition_type,
     owns condition_description,
@@ -147,47 +144,56 @@ relation conditional_branch,
     relates condition;
 ```
 
+Note: The existing schema in `semantic_tax_system.py` may already be sufficient. The different views are achieved through query logic, not schema changes.
+
 ### Phase 2: Query Functions
 
 #### A. Generic Year Tree Builder
 ```python
 def build_generic_year_tree(tx, year, root_field_id):
-    """Build tree showing all possible paths for a given year"""
+    """
+    Build tree showing all possible paths for a given year.
+    Query parameters: year only (no taxpayer specified)
+    """
     
     # Get all filing statuses for the year
     filing_statuses = get_all_filing_statuses(tx, year)
     
-    # Get all income types
+    # Get all income types available in the system
     income_types = get_all_income_types(tx)
     
-    # Get all deduction options
+    # Get all deduction options for the year (standard amounts for all statuses)
     deduction_options = get_all_deduction_options(tx, year)
     
-    # Get all tax brackets for all statuses
+    # Get all tax brackets for all filing statuses
     tax_brackets = get_all_tax_brackets(tx, year)
     
     # Build tree with all branches marked as [POSSIBLE] or [OPTION]
+    # The query logic determines what to show, not a stored attribute
     return build_tree_with_all_branches(...)
 ```
 
 #### B. Taxpayer-Specific Tree Builder
 ```python
 def build_taxpayer_tree(tx, taxpayer_ssn, year, root_field_id):
-    """Build tree showing actual calculation path for specific taxpayer"""
+    """
+    Build tree showing actual calculation path for specific taxpayer.
+    Query parameters: taxpayer_ssn AND year
+    """
     
-    # Get taxpayer's actual data
+    # Query taxpayer's actual data for the year
     taxpayer_data = get_taxpayer_data(tx, taxpayer_ssn, year)
     
-    # Get only relevant income sources
+    # Query only the income sources this taxpayer actually has
     actual_income = get_taxpayer_income_sources(tx, taxpayer_ssn)
     
-    # Get actual deduction used
+    # Query the actual deduction type used (standard or itemized)
     actual_deduction = get_taxpayer_deduction(tx, taxpayer_ssn, year)
     
-    # Get only applicable tax bracket
+    # Query only the tax bracket that applies to this taxpayer's income
     applicable_bracket = get_applicable_bracket(tx, taxpayer_data)
     
-    # Build tree with actual values and highlight applied rules
+    # Build tree with actual values - the query parameters determine the view
     return build_tree_with_actual_values(...)
 ```
 
@@ -217,26 +223,31 @@ def format_node_with_value(node_name, value=None, node_type=TreeNodeType.ACTUAL)
 ```python
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', choices=['generic', 'taxpayer'], 
-                       default='generic',
-                       help='Tree view mode')
+    # Remove 'mode' - the presence of SSN determines the view type
     parser.add_argument('--year', type=int, 
                        default=2024,
                        help='Tax year')
     parser.add_argument('--ssn', type=str,
-                       help='Taxpayer SSN (required for taxpayer mode)')
+                       help='Taxpayer SSN (if provided, shows taxpayer-specific view)')
     parser.add_argument('--show-calculations', action='store_true',
                        help='Show calculation details')
+    parser.add_argument('--compare', action='store_true',
+                       help='Show comparison view (requires SSN)')
     
     args = parser.parse_args()
     
-    if args.mode == 'generic':
-        tree = build_generic_year_tree(tx, args.year, root_field_id)
-    else:
+    # The view type is determined by which parameters are provided
+    if args.compare:
         if not args.ssn:
-            print("Error: SSN required for taxpayer mode")
+            print("Error: SSN required for comparison view")
             return
+        tree = build_comparison_view(tx, args.ssn, args.year, root_field_id)
+    elif args.ssn:
+        # SSN provided = taxpayer-specific view
         tree = build_taxpayer_tree(tx, args.ssn, args.year, root_field_id)
+    else:
+        # No SSN = generic year view
+        tree = build_generic_year_tree(tx, args.year, root_field_id)
 ```
 
 ### Phase 5: Comparison View
@@ -282,17 +293,19 @@ def build_comparison_view(tx, taxpayer_ssn, year):
 ## Example Usage
 
 ```bash
-# Generic year view - shows all possibilities
-uv run python query_dependency_tree.py --mode generic --year 2024
+# Generic year view - shows all possibilities (no SSN provided)
+uv run python query_dependency_tree.py --year 2024
 
-# Taxpayer-specific view - shows actual calculation
-uv run python query_dependency_tree.py --mode taxpayer --year 2024 --ssn "123-45-6789"
+# Taxpayer-specific view - shows actual calculation (SSN provided)
+uv run python query_dependency_tree.py --year 2024 --ssn "123-45-6789"
 
-# Comparison view
-uv run python query_dependency_tree.py --mode compare --year 2024 --ssn "123-45-6789"
+# Comparison view (requires SSN)
+uv run python query_dependency_tree.py --compare --year 2024 --ssn "123-45-6789"
 
 # With calculation details
-uv run python query_dependency_tree.py --mode taxpayer --year 2024 --ssn "123-45-6789" --show-calculations
+uv run python query_dependency_tree.py --year 2024 --ssn "123-45-6789" --show-calculations
 ```
+
+The key insight: **The view type is implicit based on the query parameters provided**, not stored in the database.
 
 This design provides flexibility to view the tax calculation structure from different perspectives, making it useful for both understanding the tax system and debugging specific calculations.

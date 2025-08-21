@@ -1,7 +1,6 @@
 README.md
 pyproject.toml
 scripts/__init__.py
-scripts/extract_function_metadata.py
 scripts/query_examples.py
 scripts/setup_database_simple.py
 scripts/verify_database.py

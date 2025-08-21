@@ -37,10 +37,15 @@ def create_true_semantic_schema(driver):
             attribute field_name, value string;
             attribute field_id, value string;
             attribute filing_status_type, value string;
+            attribute filing_status_display, value string;
             attribute deduction_amount, value double;
-            attribute rate, value double;
+            attribute deduction_type, value string;
+            attribute deduction_display, value string;
+            attribute deduction_limit, value double;
+            attribute bracket_rate, value double;
             attribute bracket_min, value double;
             attribute bracket_max, value double;
+            attribute bracket_base_tax, value double;  # Tax owed on income up to bracket_min
             # NEW: Instead of formula_expression, we store function names
             attribute calculation_function, value string;
             attribute depends_on_function, value string;
@@ -62,10 +67,12 @@ def create_true_semantic_schema(driver):
                 owns year @key,
                 plays tax_filing:period,
                 plays tax_bracket_rule:applicable_year,
-                plays standard_deduction_rule:applicable_year;
+                plays standard_deduction_rule:applicable_year,
+                plays itemized_deduction_option:applicable_year;
             
             entity filing_status,
                 owns filing_status_type @key,
+                owns filing_status_display,
                 plays tax_filing:status,
                 plays tax_bracket_rule:applicable_status,
                 plays standard_deduction_rule:applicable_status;
@@ -87,12 +94,19 @@ def create_true_semantic_schema(driver):
             entity tax_bracket,
                 owns bracket_min,
                 owns bracket_max,
-                owns rate,
+                owns bracket_rate,
+                owns bracket_base_tax,
                 plays tax_bracket_rule:bracket;
             
             entity standard_deduction,
                 owns deduction_amount,
                 plays standard_deduction_rule:deduction;
+            
+            entity itemized_deduction_type,
+                owns deduction_type @key,
+                owns deduction_display,
+                owns deduction_limit,
+                plays itemized_deduction_option:type;
             
             # === Relations ===
             
@@ -122,6 +136,10 @@ def create_true_semantic_schema(driver):
                 relates applicable_status,
                 relates deduction;
             
+            relation itemized_deduction_option,
+                relates applicable_year,
+                relates type;
+            
             # Function metadata entity
             entity function_metadata,
                 owns calculation_function @key,
@@ -149,15 +167,18 @@ def create_true_semantic_schema(driver):
             # Base function: Calculate total income for a taxpayer
             fun calculate_total_income($taxpayer: taxpayer) -> double:
                 match
-                    $income (earner: $taxpayer, type: $type) isa income_source, has amount $amt;
+                    $income isa income_source,
+                        links (earner: $taxpayer, type: $type),
+                        has amount $amt;
                 return sum($amt);
             
             # Lookup function: Get standard deduction
             fun get_standard_deduction($year: tax_year, $status: filing_status) -> deduction_amount:
                 match
-                    (applicable_year: $year, 
-                     applicable_status: $status,
-                     deduction: $deduction) isa standard_deduction_rule;
+                    $rule isa standard_deduction_rule,
+                        links (applicable_year: $year, 
+                               applicable_status: $status,
+                               deduction: $deduction);
                     $deduction has deduction_amount $ded_amount;
                 return first $ded_amount;
             
@@ -179,23 +200,24 @@ def create_true_semantic_schema(driver):
                     $taxable > 0;
                 return first $taxable;
             
-            # Get applicable tax rate
-            fun get_tax_rate($income: double, $year: tax_year, $status: filing_status) -> rate:
+            # Get applicable tax bracket with all needed info
+            fun get_tax_bracket($income: double, $year: tax_year, $status: filing_status) -> bracket_min, bracket_max, bracket_rate, bracket_base_tax:
                 match
-                    (applicable_year: $year,
-                     applicable_status: $status,
-                     bracket: $bracket) isa tax_bracket_rule;
-                    $bracket has bracket_min $min, has bracket_max $max, has rate $rate;
+                    $rule isa tax_bracket_rule,
+                        links (applicable_year: $year,
+                               applicable_status: $status,
+                               bracket: $bracket);
+                    $bracket has bracket_min $min, has bracket_max $max, has bracket_rate $rate, has bracket_base_tax $base;
                     $income >= $min;
                     $income <= $max;
-                return first $rate;
+                return first $min, $max, $rate, $base;
             
-            # COMPOSED function: Calculate federal tax (calls multiple functions)
+            # COMPOSED function: Calculate federal tax using progressive tax calculation
             fun calculate_federal_tax($taxpayer: taxpayer, $year: tax_year, $status: filing_status) -> double:
                 match
                     let $taxable = calculate_taxable_income($taxpayer, $year, $status);
-                    let $rate_attr = get_tax_rate($taxable, $year, $status);
-                    let $tax = $taxable * $rate_attr;
+                    let $min, $max, $rate, $base = get_tax_bracket($taxable, $year, $status);
+                    let $tax = $base + (($taxable - $min) * $rate);
                 return first $tax;
             
             # Meta function: Get all calculations for a tax return
@@ -254,10 +276,18 @@ def insert_form_metadata(driver):
                 has calculation_function "calculate_federal_tax";
             
             # Dependencies are explicit through function composition
-            (dependent_field: $line11, source_field: $line9) isa field_dependency, has depends_on_function "calculate_agi";
-            (dependent_field: $line15, source_field: $line11) isa field_dependency, has depends_on_function "calculate_taxable_income";
-            (dependent_field: $line15, source_field: $line12) isa field_dependency, has depends_on_function "calculate_taxable_income";
-            (dependent_field: $line16, source_field: $line15) isa field_dependency, has depends_on_function "calculate_federal_tax";
+            $dep1 isa field_dependency,
+                links (dependent_field: $line11, source_field: $line9),
+                has depends_on_function "calculate_agi";
+            $dep2 isa field_dependency,
+                links (dependent_field: $line15, source_field: $line11),
+                has depends_on_function "calculate_taxable_income";
+            $dep3 isa field_dependency,
+                links (dependent_field: $line15, source_field: $line12),
+                has depends_on_function "calculate_taxable_income";
+            $dep4 isa field_dependency,
+                links (dependent_field: $line16, source_field: $line15),
+                has depends_on_function "calculate_federal_tax";
         """
         tx.query(form_metadata).resolve()
         
@@ -266,32 +296,106 @@ def insert_form_metadata(driver):
             insert
             $year2024 isa tax_year, has year 2024;
             
-            $single isa filing_status, has filing_status_type "single";
-            $married isa filing_status, has filing_status_type "married_filing_jointly";
+            $single isa filing_status, has filing_status_type "single", has filing_status_display "Single";
+            $married isa filing_status, has filing_status_type "married_filing_jointly", has filing_status_display "Married Filing Jointly";
             
             # Standard deductions
             $single_ded isa standard_deduction, has deduction_amount 14600.0;
-            (applicable_year: $year2024, applicable_status: $single, deduction: $single_ded) isa standard_deduction_rule;
+            $single_ded_rule isa standard_deduction_rule,
+                links (applicable_year: $year2024, applicable_status: $single, deduction: $single_ded);
             
             $married_ded isa standard_deduction, has deduction_amount 29200.0;
-            (applicable_year: $year2024, applicable_status: $married, deduction: $married_ded) isa standard_deduction_rule;
+            $married_ded_rule isa standard_deduction_rule,
+                links (applicable_year: $year2024, applicable_status: $married, deduction: $married_ded);
             
-            # Tax brackets for single filers
-            $bracket1 isa tax_bracket, has bracket_min 0.0, has bracket_max 11600.0, has rate 0.10;
-            (applicable_year: $year2024, applicable_status: $single, bracket: $bracket1) isa tax_bracket_rule;
+            # Tax brackets for single filers with correct base_tax values
+            # First bracket: $0-$11,600 at 10%, base tax = $0
+            $bracket1 isa tax_bracket, has bracket_min 0.0, has bracket_max 11600.0, has bracket_rate 0.10, has bracket_base_tax 0.0;
+            $single_bracket1_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $single, bracket: $bracket1);
             
-            $bracket2 isa tax_bracket, has bracket_min 11600.0, has bracket_max 47150.0, has rate 0.12;
-            (applicable_year: $year2024, applicable_status: $single, bracket: $bracket2) isa tax_bracket_rule;
+            # Second bracket: $11,600-$47,150 at 12%, base tax = $1,160 (from first bracket)
+            $bracket2 isa tax_bracket, has bracket_min 11600.0, has bracket_max 47150.0, has bracket_rate 0.12, has bracket_base_tax 1160.0;
+            $single_bracket2_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $single, bracket: $bracket2);
             
-            $bracket3 isa tax_bracket, has bracket_min 47150.0, has bracket_max 100525.0, has rate 0.22;
-            (applicable_year: $year2024, applicable_status: $single, bracket: $bracket3) isa tax_bracket_rule;
+            # Third bracket: $47,150-$100,525 at 22%, base tax = $5,426 ($1,160 + $4,266)
+            $bracket3 isa tax_bracket, has bracket_min 47150.0, has bracket_max 100525.0, has bracket_rate 0.22, has bracket_base_tax 5426.0;
+            $single_bracket3_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $single, bracket: $bracket3);
             
-            $bracket4 isa tax_bracket, has bracket_min 100525.0, has bracket_max 999999999.0, has rate 0.24;
-            (applicable_year: $year2024, applicable_status: $single, bracket: $bracket4) isa tax_bracket_rule;
+            # Fourth bracket: $100,525+ at 24%, base tax = $17,168.50 ($5,426 + $11,742.50)
+            $bracket4 isa tax_bracket, has bracket_min 100525.0, has bracket_max 999999999.0, has bracket_rate 0.24, has bracket_base_tax 17168.5;
+            $single_bracket4_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $single, bracket: $bracket4);
+            
+            # Tax brackets for married filing jointly
+            $m_bracket1 isa tax_bracket, has bracket_min 0.0, has bracket_max 23200.0, has bracket_rate 0.10, has bracket_base_tax 0.0;
+            $married_bracket1_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $married, bracket: $m_bracket1);
+            
+            $m_bracket2 isa tax_bracket, has bracket_min 23200.0, has bracket_max 94300.0, has bracket_rate 0.12, has bracket_base_tax 2320.0;
+            $married_bracket2_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $married, bracket: $m_bracket2);
+            
+            $m_bracket3 isa tax_bracket, has bracket_min 94300.0, has bracket_max 201050.0, has bracket_rate 0.22, has bracket_base_tax 10852.0;
+            $married_bracket3_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $married, bracket: $m_bracket3);
+            
+            $m_bracket4 isa tax_bracket, has bracket_min 201050.0, has bracket_max 999999999.0, has bracket_rate 0.24, has bracket_base_tax 34337.0;
+            $married_bracket4_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $married, bracket: $m_bracket4);
+            
+            # Head of household filing status
+            $hoh isa filing_status, has filing_status_type "head_of_household", has filing_status_display "Head of Household";
+            
+            # Standard deduction for head of household
+            $hoh_ded isa standard_deduction, has deduction_amount 21900.0;
+            $hoh_ded_rule isa standard_deduction_rule,
+                links (applicable_year: $year2024, applicable_status: $hoh, deduction: $hoh_ded);
+            
+            # Tax brackets for head of household
+            $h_bracket1 isa tax_bracket, has bracket_min 0.0, has bracket_max 16550.0, has bracket_rate 0.10, has bracket_base_tax 0.0;
+            $hoh_bracket1_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $hoh, bracket: $h_bracket1);
+            
+            $h_bracket2 isa tax_bracket, has bracket_min 16550.0, has bracket_max 63100.0, has bracket_rate 0.12, has bracket_base_tax 1655.0;
+            $hoh_bracket2_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $hoh, bracket: $h_bracket2);
+            
+            $h_bracket3 isa tax_bracket, has bracket_min 63100.0, has bracket_max 100500.0, has bracket_rate 0.22, has bracket_base_tax 7241.0;
+            $hoh_bracket3_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $hoh, bracket: $h_bracket3);
+            
+            $h_bracket4 isa tax_bracket, has bracket_min 100500.0, has bracket_max 999999999.0, has bracket_rate 0.24, has bracket_base_tax 15469.0;
+            $hoh_bracket4_rule isa tax_bracket_rule,
+                links (applicable_year: $year2024, applicable_status: $hoh, bracket: $h_bracket4);
             
             # Income types
             $w2 isa income_type, has field_id "income-w2", has field_name "W-2 Wages";
             $i1099 isa income_type, has field_id "income-1099", has field_name "1099 Income";
+            
+            # Itemized deduction types
+            $salt isa itemized_deduction_type, 
+                has deduction_type "state_local_taxes",
+                has deduction_display "State/Local Taxes",
+                has deduction_limit 10000.0;
+            $salt_opt isa itemized_deduction_option,
+                links (applicable_year: $year2024, type: $salt);
+            
+            $mortgage isa itemized_deduction_type,
+                has deduction_type "mortgage_interest",
+                has deduction_display "Mortgage Interest",
+                has deduction_limit 999999999.0;  # No real limit
+            $mortgage_opt isa itemized_deduction_option,
+                links (applicable_year: $year2024, type: $mortgage);
+            
+            $charity isa itemized_deduction_type,
+                has deduction_type "charitable_contributions",
+                has deduction_display "Charitable Contributions",
+                has deduction_limit 999999999.0;  # No real limit
+            $charity_opt isa itemized_deduction_option,
+                links (applicable_year: $year2024, type: $charity);
         """
         tx.query(tax_config).resolve()
         tx.commit()
@@ -316,7 +420,8 @@ def insert_function_metadata(driver):
                 has input_entity_type "income_source",
                 has input_attribute_type "amount";
             
-            (function: $calc_income_meta, input: $income_input) isa function_input_spec;
+            $spec1 isa function_input_spec,
+                links (function: $calc_income_meta, input: $income_input);
             
             # Standard deduction metadata
             $std_ded_meta isa function_metadata,
@@ -333,8 +438,10 @@ def insert_function_metadata(driver):
                 has input_entity_type "filing_status",
                 has input_attribute_type "filing_status_type";
             
-            (function: $std_ded_meta, input: $year_input) isa function_input_spec;
-            (function: $std_ded_meta, input: $status_input) isa function_input_spec;
+            $spec2 isa function_input_spec,
+                links (function: $std_ded_meta, input: $year_input);
+            $spec3 isa function_input_spec,
+                links (function: $std_ded_meta, input: $status_input);
             
             # Federal tax metadata
             $fed_tax_meta isa function_metadata,
@@ -344,9 +451,10 @@ def insert_function_metadata(driver):
             $bracket_input isa input_spec,
                 has input_description "Tax bracket lookup",
                 has input_entity_type "tax_bracket_rule",
-                has input_attribute_type "rate";
+                has input_attribute_type "bracket_rate";
             
-            (function: $fed_tax_meta, input: $bracket_input) isa function_input_spec;
+            $spec4 isa function_input_spec,
+                links (function: $fed_tax_meta, input: $bracket_input);
             
             # AGI metadata
             $agi_meta isa function_metadata,
@@ -358,9 +466,9 @@ def insert_function_metadata(driver):
                 has calculation_function "calculate_taxable_income",
                 has function_type "calculation";
             
-            # Tax rate lookup metadata
-            $tax_rate_meta isa function_metadata,
-                has calculation_function "get_tax_rate",
+            # Tax bracket lookup metadata
+            $tax_bracket_meta isa function_metadata,
+                has calculation_function "get_tax_bracket",
                 has function_type "lookup";
         """
         tx.query(metadata).resolve()
@@ -387,11 +495,16 @@ def demonstrate_true_semantic_calculations(driver):
                     has name "John Doe";
                 
                 # Income sources
-                (earner: $john, type: $w2_type) isa income_source, has amount 75000.0;
-                (earner: $john, type: $i1099_type) isa income_source, has amount 15000.0;
+                $income1 isa income_source,
+                    links (earner: $john, type: $w2_type),
+                    has amount 75000.0;
+                $income2 isa income_source,
+                    links (earner: $john, type: $i1099_type),
+                    has amount 15000.0;
                 
                 # Filing info
-                (filer: $john, period: $year2024, status: $single) isa tax_filing;
+                $filing isa tax_filing,
+                    links (filer: $john, period: $year2024, status: $single);
         """
         tx.query(test_data).resolve()
         tx.commit()

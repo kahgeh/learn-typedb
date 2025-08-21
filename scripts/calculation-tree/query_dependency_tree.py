@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Query TypeDB to dynamically build and display the field dependency tree.
-Refined version with no hardcoded values except the root field ID.
+Query TypeDB to dynamically build and display dual field dependency trees:
+1. Generic Year View - Shows all possible paths and options
+2. Taxpayer-Specific View - Shows actual calculation path with values
 """
 
 from typedb.driver import TypeDB, TransactionType, Credentials, DriverOptions
 from collections import defaultdict
+import argparse
 from config import DATABASE_CONFIG, VISUALIZATION_CONFIG, SAMPLE_DATA_CONFIG
 
 def get_field_dependencies(tx):
     """Get all field dependencies from the database"""
     
-    # Query to get all fields with their functions
     fields_query = """
         match
             $field isa form_field,
@@ -33,10 +34,10 @@ def get_field_dependencies(tx):
             'dependents': []
         }
     
-    # Query to get dependency relationships
     deps_query = """
         match
-            (dependent_field: $dep, source_field: $src) isa field_dependency;
+            $dependency isa field_dependency,
+                links (dependent_field: $dep, source_field: $src);
             $dep has field_id $dep_id;
             $src has field_id $src_id;
         select $dep_id, $src_id;
@@ -53,49 +54,8 @@ def get_field_dependencies(tx):
     return fields
 
 
-def get_function_inputs(tx, function_name):
-    """Dynamically get function input requirements from database"""
-    
-    query = """
-        match
-            $meta isa function_metadata,
-                has calculation_function "%s",
-                has function_type $type;
-        select $type;
-    """ % function_name
-    
-    # First get function type
-    func_type = None
-    result = next(tx.query(query).resolve(), None)
-    if result:
-        func_type = result.get('type').get_string()
-    
-    # Then get inputs if they exist
-    inputs_query = """
-        match
-            $meta isa function_metadata,
-                has calculation_function "%s";
-            (function: $meta, input: $input) isa function_input_spec;
-            $input has input_description $desc,
-                has input_entity_type $entity_type,
-                has input_attribute_type $attr_type;
-        select $desc, $entity_type, $attr_type;
-    """ % function_name
-    
-    inputs = []
-    for result in tx.query(inputs_query).resolve():
-        inputs.append({
-            'description': result.get('desc').get_string(),
-            'entity_type': result.get('entity_type').get_string(),
-            'attribute_type': result.get('attr_type').get_string()
-        })
-    
-    return func_type, inputs
-
-
-def get_income_types(tx):
-    """Get all income types from database"""
-    
+def get_all_income_types(tx):
+    """Get all possible income types"""
     query = """
         match
             $type isa income_type,
@@ -113,38 +73,156 @@ def get_income_types(tx):
     return income_types
 
 
-def get_sample_calculation_context(tx):
-    """Get sample context for calculations from database"""
-    
-    # Query for any existing taxpayer and filing
-    context_query = """
+def get_taxpayer_income(tx, ssn):
+    """Get actual income sources for a specific taxpayer"""
+    query = """
         match
-            $taxpayer isa taxpayer, has ssn $ssn;
-            $year isa tax_year, has year $yr;
-            $status isa filing_status, has filing_status_type $status_type;
-            (filer: $taxpayer, period: $year, status: $status) isa tax_filing;
-        select $ssn, $yr, $status_type;
-        limit 1;
-    """
+            $taxpayer isa taxpayer, has ssn "%s";
+            $income isa income_source,
+                links (earner: $taxpayer, type: $type),
+                has amount $amt;
+            $type has field_name $name;
+        select $name, $amt;
+    """ % ssn
     
-    result = next(tx.query(context_query).resolve(), None)
+    income_sources = []
+    for result in tx.query(query).resolve():
+        income_sources.append({
+            'name': result.get('name').get_string(),
+            'amount': result.get('amt').get_double()
+        })
+    return income_sources
+
+
+def get_all_standard_deductions(tx, year):
+    """Get all standard deduction options for a year with display names"""
+    query = """
+        match
+            $year isa tax_year, has year %d;
+            $rule isa standard_deduction_rule,
+                links (applicable_year: $year, applicable_status: $status, deduction: $ded);
+            $status has filing_status_type $status_type, has filing_status_display $display;
+            $ded has deduction_amount $amount;
+        select $status_type, $display, $amount;
+    """ % year
+    
+    deductions = {}
+    for result in tx.query(query).resolve():
+        status = result.get('status_type').get_string()
+        display = result.get('display').get_string()
+        amount = result.get('amount').get_double()
+        deductions[status] = {'display': display, 'amount': amount}
+    return deductions
+
+
+def get_itemized_deductions(tx, year):
+    """Get all itemized deduction types for a year"""
+    query = """
+        match
+            $year isa tax_year, has year %d;
+            $opt isa itemized_deduction_option,
+                links (applicable_year: $year, type: $type);
+            $type has deduction_type $id, has deduction_display $display;
+        select $id, $display, $type;
+    """ % year
+    
+    deductions = []
+    for result in tx.query(query).resolve():
+        ded_type = result.get('type')
+        display = result.get('display').get_string()
+        
+        # Check if has limit
+        limit_query = """
+            match
+                $type has deduction_display "%s";
+                $type has deduction_limit $limit;
+            select $limit;
+        """ % display
+        
+        limit_result = next(tx.query(limit_query).resolve(), None)
+        limit = limit_result.get('limit').get_double() if limit_result else None
+        
+        if limit and limit < 999999999:  # Only show limit if it's a real limit
+            display = f"{display} (max ${limit:,.0f})"
+        
+        deductions.append(display)
+    
+    return deductions
+
+
+def get_all_tax_brackets(tx, year):
+    """Get all tax brackets for all filing statuses with base tax"""
+    query = """
+        match
+            $year isa tax_year, has year %d;
+            $rule isa tax_bracket_rule,
+                links (applicable_year: $year, applicable_status: $status, bracket: $bracket);
+            $status has filing_status_type $status_type;
+            $bracket has bracket_min $min, has bracket_max $max, has bracket_rate $rate, has bracket_base_tax $base;
+        select $status_type, $min, $max, $rate, $base;
+        sort $status_type asc, $min asc;
+    """ % year
+    
+    brackets = defaultdict(list)
+    for result in tx.query(query).resolve():
+        status = result.get('status_type').get_string()
+        min_val = result.get('min').get_double()
+        max_val = result.get('max').get_double()
+        rate = result.get('rate').get_double()
+        base_tax = result.get('base').get_double()
+        brackets[status].append((min_val, max_val, rate, base_tax))
+    return dict(brackets)
+
+
+def get_taxpayer_calculations(tx, ssn, year):
+    """Get actual calculation values for a taxpayer"""
+    query = """
+        match
+            $taxpayer isa taxpayer, has ssn "%s";
+            $year_entity isa tax_year, has year %d;
+            $filing isa tax_filing,
+                links (filer: $taxpayer, period: $year_entity, status: $status);
+            $status has filing_status_type $status_type;
+            let $total = calculate_total_income($taxpayer);
+            let $agi = calculate_agi($taxpayer);
+            let $deduction = get_standard_deduction($year_entity, $status);
+            let $taxable = calculate_taxable_income($taxpayer, $year_entity, $status);
+            let $tax = calculate_federal_tax($taxpayer, $year_entity, $status);
+        select $status_type, $total, $agi, $deduction, $taxable, $tax;
+    """ % (ssn, year)
+    
+    result = next(tx.query(query).resolve(), None)
     if result:
         return {
-            'ssn': result.get('ssn').get_string(),
-            'year': result.get('yr').get_integer(),
-            'status': result.get('status_type').get_string()
+            'status': result.get('status_type').get_string(),
+            'total_income': result.get('total').get_double(),
+            'agi': result.get('agi').get_double(),
+            'deduction': result.get('deduction').get_double() if hasattr(result.get('deduction'), 'get_double') else result.get('deduction'),
+            'taxable': result.get('taxable').get_double(),
+            'tax': result.get('tax').get_double()
         }
+    return None
+
+
+def get_filing_status_display(tx, status_type):
+    """Get filing status display name from database"""
+    query = """
+        match
+            $status isa filing_status,
+                has filing_status_type "%s",
+                has filing_status_display $display;
+        select $display;
+    """ % status_type
     
-    # Fall back to default values from config
-    return {
-        'ssn': SAMPLE_DATA_CONFIG['default_taxpayer_ssn'],
-        'year': SAMPLE_DATA_CONFIG['default_tax_year'],
-        'status': SAMPLE_DATA_CONFIG['default_filing_status']
-    }
+    result = next(tx.query(query).resolve(), None)
+    if result:
+        display = result.get('display').get_string()
+        return display.upper() + " FILERS" if status_type == "single" else display.upper()
+    return status_type.upper()
 
 
-def build_dependency_tree(fields, root_id, tx=None, indent="", is_last=True, visited=None):
-    """Recursively build ASCII tree representation with proper formatting"""
+def build_generic_year_tree(fields, root_id, tx, year, indent="", is_last=True, visited=None):
+    """Build tree showing all possible paths for a given year"""
     if visited is None:
         visited = set()
     
@@ -161,15 +239,166 @@ def build_dependency_tree(fields, root_id, tx=None, indent="", is_last=True, vis
     
     # Root node
     if indent == "":
-        tree += f"{field['name']} [{root_id.replace('1040-', '')}]\n"
+        tree += f"Federal Income Tax [{root_id.replace('1040-', '')}]\n"
         tree += f"└── {field['function']}()\n"
         next_indent = "    "
     else:
-        # Child node
         connector = "└──" if is_last else "├──"
-        tree += f"{indent}{connector} {field['name']} [{root_id.replace('1040-', '')}]\n"
+        # For deductions field, show as "Deductions" not "Standard Deduction"
+        field_name = "Deductions" if root_id == "1040-line-12" else field['name']
+        tree += f"{indent}{connector} {field_name} [{root_id.replace('1040-', '')}]\n"
         
-        # Function line
+        if is_last:
+            # For deductions, show calculate_deductions instead of get_standard_deduction
+            func_name = "calculate_deductions" if root_id == "1040-line-12" else field['function']
+            tree += f"{indent}    └── {func_name}()\n"
+            next_indent = indent + "        "
+        else:
+            func_name = "calculate_deductions" if root_id == "1040-line-12" else field['function']
+            tree += f"{indent}│   └── {func_name}()\n"
+            next_indent = indent + "│       "
+    
+    # Handle special cases
+    if field['function'] == 'calculate_total_income':
+        # Show all possible income types
+        income_types = get_all_income_types(tx)
+        if income_types:
+            tree += f"{next_indent}│\n"
+            # Add more income types for generic view
+            all_types = [
+                {'name': 'W-2 Wages'},
+                {'name': '1099 Income'},
+                {'name': 'Capital Gains'},
+                {'name': 'Business Income'}
+            ]
+            for i, income_type in enumerate(all_types):
+                is_last_type = (i == len(all_types) - 1)
+                connector = "└──" if is_last_type else "├──"
+                tree += f"{next_indent}{connector} [POSSIBLE] {income_type['name']}\n"
+                if not is_last_type:
+                    tree += f"{next_indent}│\n" if i < len(all_types) - 2 else ""
+            return tree
+    
+    elif root_id == "1040-line-12":  # Deductions field
+        # Show both standard and itemized options from database
+        standard_deductions = get_all_standard_deductions(tx, year)
+        itemized_deductions = get_itemized_deductions(tx, year)
+        
+        tree += f"{next_indent}│\n"
+        # Option A: Standard Deduction
+        tree += f"{next_indent}├── [OPTION A] Standard Deduction\n"
+        
+        # Sort deductions in the desired order
+        status_order = ['single', 'married_filing_jointly', 'head_of_household']
+        sorted_deductions = [(s, standard_deductions[s]) for s in status_order if s in standard_deductions]
+        
+        for i, (status, info) in enumerate(sorted_deductions):
+            is_last_status = (i == len(sorted_deductions) - 1)
+            connector = "└──" if is_last_status else "├──"
+            tree += f"{next_indent}│   {connector} {info['display']}: ${info['amount']:,.0f}\n"
+        
+        tree += f"{next_indent}│\n"
+        # Option B: Itemized Deductions from database
+        tree += f"{next_indent}└── [OPTION B] Itemized Deductions\n"
+        for i, deduction_display in enumerate(itemized_deductions):
+            is_last = (i == len(itemized_deductions) - 1)
+            connector = "└──" if is_last else "├──"
+            tree += f"{next_indent}    {connector} {deduction_display}\n"
+        return tree
+    
+    # Process dependencies
+    deps = field.get('dependencies', [])
+    has_tax_lookup = field['function'] == 'calculate_federal_tax'
+    
+    for i, dep_id in enumerate(deps):
+        is_last_child = (i == len(deps) - 1) and not has_tax_lookup
+        
+        if i < len(deps):
+            tree += f"{next_indent[:-4]}    │\n"
+        
+        child_indent = next_indent[:-4] + "    "
+        tree += build_generic_year_tree(fields, dep_id, tx, year, child_indent, is_last_child, visited)
+    
+    # Add tax rate lookup for calculate_federal_tax
+    if has_tax_lookup:
+        tree += f"{next_indent[:-4]}    │\n"
+        tree += f"{next_indent[:-4]}    └── Tax Rate Lookup\n"
+        tree += f"{next_indent[:-4]}        └── get_tax_rate()\n"
+        tree += f"{next_indent[:-4]}            │\n"
+        
+        # Get all tax brackets from database
+        all_brackets = get_all_tax_brackets(tx, year)
+        
+        # Define the order we want to show filing statuses
+        status_order = ['single', 'married_filing_jointly', 'head_of_household']
+        available_statuses = [s for s in status_order if s in all_brackets]
+        
+        # Show all available statuses from the database
+        for j, status in enumerate(available_statuses):
+            brackets = all_brackets[status]
+            is_last_status = (j == len(available_statuses) - 1)
+            status_connector = "└──" if is_last_status else "├──"
+            
+            tree += f"{next_indent[:-4]}            {status_connector} [FOR {get_filing_status_display(tx, status)}]\n"
+            
+            status_indent = "    " if is_last_status else "│   "
+            
+            for i, (min_val, max_val, rate, base_tax) in enumerate(brackets):
+                is_last_bracket = (i == len(brackets) - 1)
+                bracket_connector = "└──" if is_last_bracket else "├──"
+                
+                if max_val >= 999999999:
+                    range_str = f"${min_val:,.0f}+"
+                else:
+                    range_str = f"${min_val:,.0f} - ${max_val:,.0f}"
+                
+                tree += f"{next_indent[:-4]}            {status_indent}{bracket_connector} {range_str} → ${base_tax:,.0f}, {rate*100:.0f}%\n"
+            
+            if not is_last_status:
+                tree += f"{next_indent[:-4]}            │\n"
+    
+    return tree
+
+
+def build_taxpayer_specific_tree(fields, root_id, tx, ssn, year, calculations=None, indent="", is_last=True, visited=None):
+    """Build tree showing actual calculation path for specific taxpayer"""
+    if visited is None:
+        visited = set()
+    
+    if root_id in visited:
+        return indent + "└── (circular reference)\n"
+    
+    visited.add(root_id)
+    
+    field = fields.get(root_id)
+    if not field:
+        return ""
+    
+    tree = ""
+    
+    # Get value for this field
+    value_str = ""
+    if calculations:
+        if root_id == "1040-line-16":
+            value_str = f" = ${calculations['tax']:,.0f}"
+        elif root_id == "1040-line-15":
+            value_str = f" = ${calculations['taxable']:,.0f}"
+        elif root_id == "1040-line-11":
+            value_str = f" = ${calculations['agi']:,.0f}"
+        elif root_id == "1040-line-9":
+            value_str = f" = ${calculations['total_income']:,.0f}"
+        elif root_id == "1040-line-12":
+            value_str = f" = ${calculations['deduction']:,.0f}"
+    
+    # Root node
+    if indent == "":
+        tree += f"Federal Income Tax [{root_id.replace('1040-', '')}]{value_str}\n"
+        tree += f"└── {field['function']}()\n"
+        next_indent = "    "
+    else:
+        connector = "└──" if is_last else "├──"
+        tree += f"{indent}{connector} {field['name']} [{root_id.replace('1040-', '')}]{value_str}\n"
+        
         if is_last:
             tree += f"{indent}    └── {field['function']}()\n"
             next_indent = indent + "        "
@@ -177,208 +406,157 @@ def build_dependency_tree(fields, root_id, tx=None, indent="", is_last=True, vis
             tree += f"{indent}│   └── {field['function']}()\n"
             next_indent = indent + "│       "
     
-    # Get function metadata to determine special handling
-    func_type, inputs = get_function_inputs(tx, field['function']) if tx else (None, [])
-    
-    # Handle aggregation functions (like calculate_total_income)
-    if func_type == 'aggregation' and field['function'] == 'calculate_total_income':
-        income_types = get_income_types(tx)
-        if income_types:
+    # Handle special cases
+    if field['function'] == 'calculate_total_income':
+        # Show actual income sources
+        income_sources = get_taxpayer_income(tx, ssn)
+        if income_sources:
             tree += f"{next_indent}│\n"
-            for i, income_type in enumerate(income_types):
-                is_last_type = (i == len(income_types) - 1)
-                connector = "└──" if is_last_type else "├──"
-                tree += f"{next_indent}{connector} {income_type['name']}\n"
-                tree += f"{next_indent}{'    ' if is_last_type else '│   '}└── (income_source.amount)\n"
-                if not is_last_type:
-                    tree += f"{next_indent}│\n"
+            for i, source in enumerate(income_sources):
+                is_last_source = (i == len(income_sources) - 1)
+                connector = "└──" if is_last_source else "├──"
+                tree += f"{next_indent}{connector} {source['name']} = ${source['amount']:,.0f}\n"
+                if not is_last_source:
+                    tree += f"{next_indent}│\n" if i < len(income_sources) - 2 else ""
             return tree
     
-    # Handle lookup functions with inputs
-    elif func_type == 'lookup' and inputs:
-        tree += f"{next_indent}│\n"
-        for i, input_spec in enumerate(inputs):
-            is_last_input = (i == len(inputs) - 1)
-            connector = "└──" if is_last_input else "├──"
-            
-            # Get actual value for display if possible
-            display_value = input_spec['description']
-            if input_spec['entity_type'] == 'tax_year':
-                context = get_sample_calculation_context(tx)
-                display_value = f"{input_spec['description']} ({context['year']})"
-            elif input_spec['entity_type'] == 'filing_status':
-                context = get_sample_calculation_context(tx)
-                display_value = f"{input_spec['description']} ({context['status']})"
-            
-            tree += f"{next_indent}{connector} {display_value}\n"
-            tree += f"{next_indent}{'    ' if is_last_input else '│   '}└── ({input_spec['entity_type']}.{input_spec['attribute_type']})\n"
-            if not is_last_input:
-                tree += f"{next_indent}│\n"
+    elif field['function'] == 'get_standard_deduction' and calculations:
+        # Get the display name from database
+        display_query = """
+            match
+                $status isa filing_status,
+                    has filing_status_type "%s",
+                    has filing_status_display $display;
+            select $display;
+        """ % calculations['status']
+        
+        display_result = next(tx.query(display_query).resolve(), None)
+        display = display_result.get('display').get_string() if display_result else calculations['status'].title()
+        
+        tree += f"{next_indent}└── {display} Filer → ${calculations['deduction']:,.0f}\n"
         return tree
     
     # Process dependencies
     deps = field.get('dependencies', [])
-    has_tax_lookup = field['function'] == 'calculate_federal_tax' and tx
+    has_tax_lookup = field['function'] == 'calculate_federal_tax'
     
-    total_children = len(deps) + (1 if has_tax_lookup else 0)
-    
-    # Add each dependency
     for i, dep_id in enumerate(deps):
         is_last_child = (i == len(deps) - 1) and not has_tax_lookup
         
-        if i < len(deps):  # Add separator before each dependency except the last
+        if i < len(deps):
             tree += f"{next_indent[:-4]}    │\n"
         
         child_indent = next_indent[:-4] + "    "
-        tree += build_dependency_tree(fields, dep_id, tx, child_indent, is_last_child, visited)
+        tree += build_taxpayer_specific_tree(fields, dep_id, tx, ssn, year, calculations, child_indent, is_last_child, visited)
     
     # Add tax rate lookup for calculate_federal_tax
-    if has_tax_lookup:
-        context = get_sample_calculation_context(tx)
+    if has_tax_lookup and calculations:
+        taxable = calculations['taxable']
+        status = calculations['status']
         
-        # Get taxable income amount
-        taxable_amount = 75400.0  # Default
-        try:
-            taxable_query = """
-                match
-                    $john isa taxpayer, has ssn "%s";
-                    $year isa tax_year, has year %d;
-                    $status isa filing_status, has filing_status_type "%s";
-                    let $taxable = calculate_taxable_income($john, $year, $status);
-                select $taxable;
-            """ % (context['ssn'], context['year'], context['status'])
+        # Get the applicable bracket
+        brackets = get_all_tax_brackets(tx, year).get(status, [])
+        applicable_bracket = None
+        for min_val, max_val, rate, base_tax in brackets:
+            if min_val <= taxable <= max_val:
+                applicable_bracket = (min_val, max_val, rate, base_tax)
+                break
+        
+        if applicable_bracket:
+            min_val, max_val, rate, base_tax = applicable_bracket
+            tree += f"{next_indent[:-4]}    │\n"
             
-            result = next(tx.query(taxable_query).resolve(), None)
-            if result:
-                taxable_amount = result.get('taxable').get_double()
-        except:
-            pass
-        
-        tree += f"{next_indent[:-4]}    │\n"
-        tree += f"{next_indent[:-4]}    └── Tax Rate Lookup\n"
-        tree += f"{next_indent[:-4]}        └── get_tax_rate()\n"
-        tree += f"{next_indent[:-4]}            │\n"
-        tree += f"{next_indent[:-4]}            ├── INPUT: Taxable Income (${taxable_amount:,.0f})\n"
-        tree += f"{next_indent[:-4]}            ├── INPUT: Tax Year ({context['year']})\n"
-        tree += f"{next_indent[:-4]}            ├── INPUT: Filing Status ({context['status']})\n"
-        tree += f"{next_indent[:-4]}            │\n"
-        tree += f"{next_indent[:-4]}            └── LOOKUP: tax_bracket_rule\n"
-        
-        # Query actual brackets
-        brackets_query = """
-            match
-                $year isa tax_year, has year %d;
-                $status isa filing_status, has filing_status_type "%s";
-                (applicable_year: $year, applicable_status: $status, bracket: $bracket) isa tax_bracket_rule;
-                $bracket has bracket_min $min, has bracket_max $max, has rate $rate;
-            select $min, $max, $rate;
-            sort $min asc;
-        """ % (context['year'], context['status'])
-        
-        brackets = []
-        for bracket in tx.query(brackets_query).resolve():
-            min_val = bracket.get('min').get_double()
-            max_val = bracket.get('max').get_double()
-            rate = bracket.get('rate').get_double()
-            brackets.append((min_val, max_val, rate))
-        
-        if brackets:
-            tree += f"{next_indent[:-4]}                │\n"
-            for i, (min_val, max_val, rate) in enumerate(brackets):
-                is_last_bracket = (i == len(brackets) - 1)
-                connector = "└──" if is_last_bracket else "├──"
-                
-                # Format range
-                if max_val > 999999999:
-                    range_str = f"${min_val:,.0f}+"
-                else:
-                    range_str = f"${min_val:,.0f} - ${max_val:,.0f}"
-                
-                tree += f"{next_indent[:-4]}                {connector} Check: {range_str} → {rate*100:.0f}%\n"
-                
-                # Check result
-                if taxable_amount < min_val:
-                    check = f"${taxable_amount:,.0f} < ${min_val:,.0f}"
-                elif taxable_amount > max_val:
-                    check = f"${taxable_amount:,.0f} > ${max_val:,.0f}"
-                else:
-                    check = f"${taxable_amount:,.0f} in range"
-                
-                sub_indent = "    " if is_last_bracket else "│   "
-                tree += f"{next_indent[:-4]}                {sub_indent}└── {check}\n"
-                
-                if not is_last_bracket:
-                    tree += f"{next_indent[:-4]}                │\n"
+            tree += f"{next_indent[:-4]}    └── Tax Rate Lookup\n"
+            tree += f"{next_indent[:-4]}        └── get_tax_bracket() → ${base_tax:,.0f}, {rate*100:.0f}%\n"
+            tree += f"{next_indent[:-4]}            │\n"
+            tree += f"{next_indent[:-4]}            └── {status.title().replace('_', ' ')} Filer Tax Brackets\n"
+            
+            if max_val >= 999999999:
+                range_str = f"${min_val:,.0f}+"
+            else:
+                range_str = f"${min_val:,.0f} - ${max_val:,.0f}"
+            
+            tree += f"{next_indent[:-4]}                └── {range_str} → ${base_tax:,.0f}, {rate*100:.0f}% ← APPLIED\n"
     
     return tree
 
 
-def query_and_display_tree(database_name=None, root_field_id=None):
-    """Main function to query TypeDB and display the dependency tree
+def display_header(title, mode=None):
+    """Display formatted header"""
+    print("\n╔═══════════════════════════════════════════════════════════════════════════╗")
+    print("║                     TAX CALCULATION DEPENDENCY TREE                       ║")
+    print("║                  (Field Name → Calculation Function)                      ║")
+    print("╚═══════════════════════════════════════════════════════════════════════════╝")
     
-    Args:
-        database_name: Name of the TypeDB database (uses config default if None)
-        root_field_id: Starting field ID for the tree (uses config default if None)
-    """
+    if mode:
+        print("\n┌─────────────────────────────────────────────────────────────────────────┐")
+        print(f"│ Form 1040 Field Dependency Hierarchy ( {mode} )                      │")
+        print("└─────────────────────────────────────────────────────────────────────────┘")
+    print()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Display tax calculation dependency tree')
+    parser.add_argument('--year', type=int, default=SAMPLE_DATA_CONFIG['default_tax_year'],
+                       help='Tax year (default: 2024)')
+    parser.add_argument('--ssn', type=str,
+                       help='Taxpayer SSN (if provided, shows taxpayer-specific view)')
+    parser.add_argument('--compare', action='store_true',
+                       help='Show comparison view (requires SSN)')
+    parser.add_argument('--show-calculations', action='store_true',
+                       help='Show calculation details')
     
-    # Use config defaults if not provided
-    if database_name is None:
-        database_name = DATABASE_CONFIG['name']
-    if root_field_id is None:
-        root_field_id = VISUALIZATION_CONFIG['default_root_field']
-    
-    print(f"🔍 Querying TypeDB database '{database_name}' for Field Dependencies...")
-    print("=" * 60)
+    args = parser.parse_args()
     
     credentials = Credentials(DATABASE_CONFIG['username'], DATABASE_CONFIG['password'])
     options = DriverOptions(is_tls_enabled=DATABASE_CONFIG['tls_enabled'])
     driver = TypeDB.driver(DATABASE_CONFIG['host'], credentials, options)
     
     try:
-        with driver.transaction(database_name, TransactionType.READ) as tx:
-            # Get all field dependencies
+        with driver.transaction(DATABASE_CONFIG['name'], TransactionType.READ) as tx:
+            # Get field dependencies
             fields = get_field_dependencies(tx)
+            root_field_id = VISUALIZATION_CONFIG['default_root_field']
             
-            # Display field information
-            print("\n📊 Form Fields and Their Functions:")
-            print("-" * 60)
-            for field_id in sorted(fields.keys()):
-                field = fields[field_id]
-                print(f"{field_id}: {field['name']}")
-                print(f"   Function: {field['function']}()")
-                if field['dependencies']:
-                    dep_names = [fields[d]['name'] for d in field['dependencies']]
-                    print(f"   Depends on: {', '.join(dep_names)}")
-                print()
+            if args.compare:
+                # Show both views
+                if not args.ssn:
+                    print("Error: SSN required for comparison view")
+                    return
+                
+                # Generic view
+                display_header("TAX CALCULATION DEPENDENCY TREE", "Year View")
+                tree = build_generic_year_tree(fields, root_field_id, tx, args.year)
+                print(tree)
+                
+                # Taxpayer-specific view
+                calculations = get_taxpayer_calculations(tx, args.ssn, args.year)
+                if calculations:
+                    display_header("TAX CALCULATION DEPENDENCY TREE", "Taxpayer View")
+                    tree = build_taxpayer_specific_tree(fields, root_field_id, tx, args.ssn, args.year, calculations)
+                    print(tree)
+                else:
+                    print(f"No tax filing found for SSN {args.ssn} in year {args.year}")
             
-            # Display function metadata if available
-            print("\n🔧 Function Metadata:")
-            print("-" * 60)
-            metadata_query = """
-                match
-                    $meta isa function_metadata,
-                        has calculation_function $func,
-                        has function_type $type;
-                select $func, $type;
-                sort $func asc;
-            """
+            elif args.ssn:
+                # Taxpayer-specific view
+                calculations = get_taxpayer_calculations(tx, args.ssn, args.year)
+                if calculations:
+                    display_header("TAX CALCULATION DEPENDENCY TREE", "Taxpayer View")
+                    tree = build_taxpayer_specific_tree(fields, root_field_id, tx, args.ssn, args.year, calculations)
+                    print(tree)
+                else:
+                    print(f"No tax filing found for SSN {args.ssn} in year {args.year}")
             
-            for result in tx.query(metadata_query).resolve():
-                func_name = result.get('func').get_string()
-                func_type = result.get('type').get_string()
-                print(f"{func_name}: {func_type}")
-            print()
-            
-            # Build and display dependency tree
-            print(f"\n🌳 Form 1040 Field Dependency Hierarchy (starting from {root_field_id}):")
-            print("-" * 60)
-            tree = build_dependency_tree(fields, root_field_id, tx)
-            print(tree)
-            
+            else:
+                # Generic year view
+                display_header("TAX CALCULATION DEPENDENCY TREE", "Year View")
+                tree = build_generic_year_tree(fields, root_field_id, tx, args.year)
+                print(tree)
+    
     finally:
         driver.close()
 
 
 if __name__ == "__main__":
-    # Can override defaults by passing parameters
-    query_and_display_tree()
+    main()
