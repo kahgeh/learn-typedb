@@ -374,6 +374,11 @@ def insert_form_metadata(driver):
             # Income types
             $w2 isa income_type, has field_id "income-w2", has field_name "W-2 Wages";
             $i1099 isa income_type, has field_id "income-1099", has field_name "1099 Income";
+            $capital_gains isa income_type, has field_id "income-capital-gains", has field_name "Capital Gains";
+            $business isa income_type, has field_id "income-business", has field_name "Business Income";
+            $dividends isa income_type, has field_id "income-dividends", has field_name "Dividends";
+            $interest isa income_type, has field_id "income-interest", has field_name "Interest Income";
+            $rental isa income_type, has field_id "income-rental", has field_name "Rental Income";
             
             # Itemized deduction types
             $salt isa itemized_deduction_type, 
@@ -579,6 +584,141 @@ def demonstrate_true_semantic_calculations(driver):
         
 
 
+def enhance_schema_with_metadata(driver):
+    """Add function metadata support to enable generic tree traversal"""
+    
+    print("\n🔧 Enhancing schema with function metadata...")
+    with driver.transaction("tax-system", TransactionType.SCHEMA) as tx:
+        
+        # Add new attributes and entities for function metadata
+        metadata_schema = """
+            define
+            
+            # Function metadata attributes
+            attribute function_name, value string;
+            attribute function_type, value string;  # "aggregation", "lookup", "choice", "calculation"
+            attribute display_pattern, value string;
+            attribute query_pattern, value string;
+            attribute is_optional, value boolean;
+            
+            # Function specification entity
+            entity function_spec,
+                owns function_name @key,
+                owns function_type,
+                owns display_pattern,
+                owns query_pattern,
+                plays function_dependency:caller,
+                plays function_dependency:callee;
+            
+            # Function dependencies
+            relation function_dependency,
+                relates caller,
+                relates callee,
+                owns is_optional;
+        """
+        
+        tx.query(metadata_schema).resolve()
+        tx.commit()
+        print("   ✓ Function metadata schema added")
+
+
+def insert_function_specifications(driver):
+    """Insert function specifications that describe behavior"""
+    
+    print("\n📝 Inserting function specifications...")
+    with driver.transaction("tax-system", TransactionType.WRITE) as tx:
+        
+        # Insert specs for each function
+        specs = """
+            insert
+            
+            # Aggregation function for income
+            $calc_income isa function_spec,
+                has function_name "calculate_total_income",
+                has function_type "aggregation",
+                has display_pattern "[POSSIBLE] {name}",
+                has query_pattern "income_type";
+            
+            # Simple calculation functions
+            $calc_agi isa function_spec,
+                has function_name "calculate_agi",
+                has function_type "calculation";
+            
+            # Lookup function for deductions
+            $get_deduction isa function_spec,
+                has function_name "get_standard_deduction",
+                has function_type "lookup",
+                has display_pattern "{status}: ${amount}",
+                has query_pattern "standard_deduction_rule";
+            
+            # Composition function for taxable income
+            $calc_taxable isa function_spec,
+                has function_name "calculate_taxable_income",
+                has function_type "calculation";
+            
+            # Tax calculation with bracket lookup
+            $calc_tax isa function_spec,
+                has function_name "calculate_federal_tax",
+                has function_type "calculation",
+                has query_pattern "tax_bracket_rule";
+            
+            # Bracket lookup
+            $get_bracket isa function_spec,
+                has function_name "get_tax_bracket",
+                has function_type "lookup",
+                has query_pattern "tax_bracket_rule";
+        """
+        
+        tx.query(specs).resolve()
+        tx.commit()
+        print("   ✓ Function specifications inserted")
+
+
+def insert_function_dependencies(driver):
+    """Insert explicit function dependencies"""
+    
+    print("\n🔗 Inserting function dependencies...")
+    with driver.transaction("tax-system", TransactionType.WRITE) as tx:
+        
+        # Query to get function specs
+        deps = """
+            match
+                $calc_agi isa function_spec, has function_name "calculate_agi";
+                $calc_income isa function_spec, has function_name "calculate_total_income";
+                $calc_taxable isa function_spec, has function_name "calculate_taxable_income";
+                $get_deduction isa function_spec, has function_name "get_standard_deduction";
+                $calc_tax isa function_spec, has function_name "calculate_federal_tax";
+                $get_bracket isa function_spec, has function_name "get_tax_bracket";
+            insert
+                # AGI depends on total income
+                $dep1 isa function_dependency,
+                    links (caller: $calc_agi, callee: $calc_income),
+                    has is_optional false;
+                
+                # Taxable income depends on AGI and deductions
+                $dep2 isa function_dependency,
+                    links (caller: $calc_taxable, callee: $calc_agi),
+                    has is_optional false;
+                
+                $dep3 isa function_dependency,
+                    links (caller: $calc_taxable, callee: $get_deduction),
+                    has is_optional false;
+                
+                # Federal tax depends on taxable income and brackets
+                $dep4 isa function_dependency,
+                    links (caller: $calc_tax, callee: $calc_taxable),
+                    has is_optional false;
+                
+                $dep5 isa function_dependency,
+                    links (caller: $calc_tax, callee: $get_bracket),
+                    has is_optional false;
+        """
+        
+        tx.query(deps).resolve()
+        tx.commit()
+        print("   ✓ Function dependencies inserted")
+
+
 def setup_true_semantic_database():
     """Main setup function"""
     
@@ -599,11 +739,20 @@ def setup_true_semantic_database():
         # Create schema with composable functions
         create_true_semantic_schema(driver)
         
+        # Add enhanced metadata schema for generic traversal
+        enhance_schema_with_metadata(driver)
+        
         # Insert form metadata that references functions
         insert_form_metadata(driver)
         
         # Insert function metadata
         insert_function_metadata(driver)
+        
+        # Insert function specifications for generic traversal
+        insert_function_specifications(driver)
+        
+        # Insert function dependencies
+        insert_function_dependencies(driver)
         
         # Demonstrate calculations
         demonstrate_true_semantic_calculations(driver)
@@ -613,6 +762,7 @@ def setup_true_semantic_database():
         print("   • No redundant formula strings - functions ARE the formulas")
         print("   • Dependencies are explicit through function calls")
         print("   • The schema enforces calculation correctness")
+        print("   • Function metadata enables fully generic tree traversal")
         
     finally:
         driver.close()
